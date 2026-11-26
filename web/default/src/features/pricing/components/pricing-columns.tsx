@@ -298,9 +298,11 @@ export function usePricingColumns(
             'create_cache',
             'cc',
             'cc1h',
+            'cc12h',
             'cacheWritePrice',
             'cacheCreatePrice',
             'cacheCreate1hPrice',
+            'cacheCreate12hPrice',
           ]),
           display,
           t

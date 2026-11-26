@@ -485,6 +485,56 @@ func TestCacheWriteTokensTotal(t *testing.T) {
 	})
 }
 
+func TestPostTextConsumeQuotaOpenAI12hWrites(t *testing.T) {
+	usage := &dto.Usage{PromptTokens: 12000, TotalTokens: 12000, PromptTokensDetails: dto.InputTokenDetails{
+		CachedTokens: 4000, CacheWriteTokens: 7000,
+		CacheWriteTokensDetails: &dto.CacheWriteTokenDetails{TTL30mTokens: 3000, TTL12hTokens: 4000},
+	}}
+	for _, tc := range []struct {
+		name, expr string
+		quota      int
+	}{
+		{"ratio", "", 75750},
+		{"legacy cc", `tier("base", p*10 + cr + cc*12.5)`, 75750},
+		{"explicit free 12h", `tier("base", p*10 + cr + cc*12.5 + cc12h*0)`, 25750},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			truncate(t)
+			const id, balance = 63, 1000000
+			seedUser(t, id, balance)
+			seedToken(t, id, id, "cache-write-test", balance)
+			seedChannel(t, id)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			info := &relaycommon.RelayInfo{
+				UserId: id, TokenId: id, TokenKey: "cache-write-test",
+				StartTime: time.Now(), OriginModelName: "test-model", UsingGroup: "default",
+				RelayFormat: types.RelayFormatOpenAIResponses, ChannelMeta: &relaycommon.ChannelMeta{ChannelId: id},
+			}
+			info.PriceData.GroupRatioInfo.GroupRatio = 1
+			if tc.expr == "" {
+				info.PriceData.ModelRatio = 5
+				info.PriceData.CacheRatio = 0.1
+				info.PriceData.CacheCreationRatio = 1.25
+			} else {
+				info.TieredBillingSnapshot = makeSnapshot(tc.expr, 1, 0, 0)
+			}
+			PostTextConsumeQuota(ctx, info, usage, nil)
+			require.Equal(t, balance-tc.quota, getUserQuota(t, id))
+			require.Equal(t, balance-tc.quota, getTokenRemainQuota(t, id))
+			log := getLastLog(t)
+			require.Equal(t, tc.quota, log.Quota)
+			require.EqualValues(t, 7000, log.CacheWriteTokens)
+			var other map[string]any
+			require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+			require.EqualValues(t, 4000, other["cache_creation_tokens_12h"])
+			if tc.expr == "" {
+				require.EqualValues(t, 2.5, other["cache_creation_ratio_12h"])
+			}
+		})
+	}
+}
+
 func TestOpenAICacheWriteTokensUseCacheCreationPrice(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -940,4 +990,15 @@ func TestNormalizedLogInputTokensUsesProviderUsageSemantics(t *testing.T) {
 
 	gemini := &relaycommon.RelayInfo{FinalRequestRelayFormat: types.RelayFormatGemini}
 	require.Equal(t, 100, normalizedLogInputTokens(gemini, usage, summary))
+}
+
+func TestExplicitFreeClaudeLongWrites(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	info := &relaycommon.RelayInfo{RelayFormat: types.RelayFormatClaude, PriceData: hosttypes.PriceData{
+		ModelRatio: 1, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}, CacheCreation5mRatio: 1.25, FreeCacheCreation1h: true,
+	}}
+	usage := &dto.Usage{UsageSemantic: "anthropic", ClaudeCacheCreation1hTokens: 100}
+	require.Zero(t, calculateTextQuotaSummary(ctx, info, usage).Quota)
+	usage.PromptTokens = 10
+	require.Equal(t, 10, calculateTextQuotaSummary(ctx, info, usage).Quota)
 }

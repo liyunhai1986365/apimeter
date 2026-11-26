@@ -1639,6 +1639,16 @@ export function renderTaskBillingProcess(other, content) {
   ]);
 }
 
+function openAICacheWriteBuckets(opts) {
+  // Older settlements may have TTL counts but a single write rate.
+  if (opts.cache_creation_ratio_12h == null || !(opts.cache_creation_tokens_12h > 0)) return [];
+  const longWrites = opts.cache_creation_tokens_12h;
+  return [
+    { ttl: '30m', tokens: opts.cache_creation_tokens - longWrites, ratio: opts.cache_creation_ratio },
+    { ttl: '12h', tokens: longWrites, ratio: opts.cache_creation_ratio_12h },
+  ].filter(({ tokens }) => tokens > 0);
+}
+
 export function renderModelPrice(opts) {
   const {
     prompt_tokens: inputTokens = 0,
@@ -1674,6 +1684,13 @@ export function renderModelPrice(opts) {
   const completionRatio = _completionRatio ?? 0;
 
   const { symbol, rate } = getCurrencyConfig();
+
+  const writeBuckets = openAICacheWriteBuckets(opts);
+  const has12hPrice = writeBuckets.length > 0;
+  const totalWrites = has12hPrice ? opts.cache_creation_tokens : 0;
+  const writeUnits = writeBuckets.reduce((sum, row) => sum + row.tokens * row.ratio, 0);
+  const plainInput = Math.max(0, inputTokens - cacheTokens - totalWrites -
+      (image ? imageOutputTokens : 0) - audioInputTokens);
 
   if (!shouldUseRatioBillingProcess(modelPrice)) {
     if (modelPrice !== -1) {
@@ -1711,6 +1728,10 @@ export function renderModelPrice(opts) {
     if (audioInputTokens > 0) {
       effectiveInputTokens -= audioInputTokens;
     }
+    if (has12hPrice) {
+      effectiveInputTokens = plainInput + cacheTokens * cacheRatio +
+          (image ? imageOutputTokens * imageRatio : 0) + writeUnits;
+    }
     const price =
         (effectiveInputTokens / 1000000) * inputRatioPrice * groupRatio +
         (audioInputTokens / 1000000) * audioInputPrice * groupRatio +
@@ -1720,7 +1741,25 @@ export function renderModelPrice(opts) {
         imageGenerationCallPrice * groupRatio;
 
     let inputDesc = '';
-    if (image && imageOutputTokens > 0) {
+    if (has12hPrice) {
+      const terms = [
+        buildBillingPriceText('提示 {{input}} tokens / 1M tokens * {{symbol}}{{price}}', {
+          input: plainInput, usdAmount: inputRatioPrice, symbol, rate,
+        }),
+        cacheTokens > 0 && buildBillingPriceText('缓存 {{tokens}} tokens / 1M tokens * {{symbol}}{{price}}', {
+          tokens: cacheTokens, usdAmount: cacheRatioPrice, symbol, rate,
+        }),
+        ...writeBuckets.map(({ ttl, tokens, ratio }) => ttl + ' ' +
+            buildBillingPriceText('缓存创建 {{tokens}} tokens / 1M tokens * {{symbol}}{{price}}', {
+              tokens, usdAmount: inputRatioPrice * ratio, symbol, rate,
+            })),
+        image && imageOutputTokens > 0 && buildBillingPriceText('图片输入 {{tokens}} tokens / 1M tokens * {{symbol}}{{price}}', {
+          tokens: imageOutputTokens, usdAmount: imageRatioPrice, symbol, rate,
+        }),
+        audioInputTokens > 0 && `${i18next.t('音频输入价格')} ${audioInputTokens} tokens / 1M × ${symbol}${formatBillingDisplayPrice(audioInputPrice, rate)}`,
+      ];
+      inputDesc = '(' + terms.filter(Boolean).join(' + ');
+    } else if (image && imageOutputTokens > 0) {
       inputDesc = buildBillingPriceText(
           '(输入 {{nonImageInput}} tokens + 图片输入 {{imageInput}} tokens / 1M tokens * {{symbol}}{{price}}',
           {
@@ -1919,7 +1958,7 @@ export function renderModelPrice(opts) {
           ? formatRatioValue(audioInputPrice / inputRatioPrice)
           : null;
 
-  const textInputTokens = Math.max(
+  const textInputTokens = has12hPrice ? plainInput : Math.max(
       inputTokens - cacheTokens - audioInputTokens,
       0,
   );
@@ -1951,6 +1990,7 @@ export function renderModelPrice(opts) {
 
   const totalAmount =
       textInputAmount +
+      (writeUnits / 1000000) * inputRatioPrice * groupRatio +
       cacheInputAmount +
       imageInputAmount +
       audioInputAmount +
@@ -2014,6 +2054,11 @@ export function renderModelPrice(opts) {
             },
         )
         : null,
+    ...writeBuckets.map(({ ttl, tokens, ratio }) => ttl + ' ' +
+        buildBillingText('缓存创建：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 缓存创建倍率 {{cacheCreationRatio}} * {{ratioType}} {{ratio}} = {{amount}}', {
+          tokens, modelRatio: modelRatioValue, cacheCreationRatio: ratio, ratioType: ratioLabel, ratio: groupRatio,
+          amount: renderDisplayAmountFromUsd((tokens / 1000000) * inputRatioPrice * ratio * groupRatio),
+        })),
     imageInputTokens > 0
         ? buildBillingText(
             '图片输入：{{tokens}} / 1M * 模型倍率 {{modelRatio}} * 图片倍率 {{imageRatio}} * {{ratioType}} {{ratio}} = {{amount}}',
@@ -2438,14 +2483,15 @@ export function renderModelPriceSimple(opts) {
     displayMode = 'price',
     outputMode = 'text',
   } = opts;
-  return renderPriceSimpleCore({
+  const writeBuckets = modelPrice === -1 ? openAICacheWriteBuckets(opts) : [];
+  const summary = renderPriceSimpleCore({
     modelRatio,
     modelPrice,
     groupRatio,
     user_group_ratio,
     cacheTokens,
     cacheRatio,
-    cacheCreationTokens,
+    cacheCreationTokens: writeBuckets.length ? 0 : cacheCreationTokens,
     cacheCreationRatio,
     cacheCreationTokens5m,
     cacheCreationRatio5m,
@@ -2457,6 +2503,14 @@ export function renderModelPriceSimple(opts) {
     displayMode,
     outputMode,
   });
+  if (!writeBuckets.length) return summary;
+  const prices = writeBuckets.map(({ ttl, ratio }) => ttl + ' ' +
+      (isPriceDisplayMode(displayMode, modelPrice)
+          ? i18next.t('缓存创建 {{price}} / 1M tokens', { price: formatCompactDisplayPrice(modelRatio * 2 * ratio) })
+          : i18next.t('缓存创建: {{cacheCreationRatio}}', { cacheCreationRatio: ratio })));
+  return outputMode === 'segments'
+      ? [...summary, ...prices.map((text) => ({ tone: 'secondary', text }))]
+      : joinBillingSummary([summary, ...prices]);
 }
 
 export function renderAudioModelPrice(opts) {

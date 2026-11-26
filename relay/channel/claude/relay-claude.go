@@ -689,6 +689,22 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	return nil
 }
 
+func recordClaudeServerTools(c *gin.Context, usage *dto.ClaudeUsage) {
+	if usage == nil || usage.ServerToolUse == nil {
+		return
+	}
+	t := usage.ServerToolUse
+	for name, count := range map[string]int{
+		"web_search": t.WebSearchRequests, "web_fetch": t.WebFetchRequests,
+		"code_execution": t.CodeExecutionRequests, "tool_search": t.ToolSearchRequests,
+	} {
+		key := "claude_" + name + "_requests"
+		if count > c.GetInt(key) {
+			c.Set(key, count)
+		}
+	}
+}
+
 func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo, claudeResponse *dto.ClaudeResponse) {
 	if claudeResponse == nil {
 		return
@@ -698,12 +714,10 @@ func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo,
 		claudeResponse.ContentBlock.Type == "tool_use" {
 		info.CountBillableToolCall(dto.BuildInCallToolUse, claudeResponse.ContentBlock.Name)
 	}
-	if claudeResponse.Type == "message_delta" &&
-		claudeResponse.Usage != nil &&
-		claudeResponse.Usage.ServerToolUse != nil &&
-		claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
-		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
+	if claudeResponse.Type == "message_start" && claudeResponse.Message != nil {
+		recordClaudeServerTools(c, claudeResponse.Message.Usage)
 	}
+	recordClaudeServerTools(c, claudeResponse.Usage)
 }
 
 func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo) {
@@ -810,9 +824,7 @@ func HandleClaudeResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		responseData = data
 	}
 
-	if claudeResponse.Usage != nil && claudeResponse.Usage.ServerToolUse != nil && claudeResponse.Usage.ServerToolUse.WebSearchRequests > 0 {
-		c.Set("claude_web_search_requests", claudeResponse.Usage.ServerToolUse.WebSearchRequests)
-	}
+	recordClaudeServerTools(c, claudeResponse.Usage)
 
 	for _, block := range claudeResponse.Content {
 		if block.Type == "tool_use" {

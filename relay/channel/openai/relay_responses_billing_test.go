@@ -194,6 +194,33 @@ func TestOaiResponsesHandlerIncompleteStatusCommitsZeroImageGeneration(t *testin
 	assert.Equal(t, 0, info.ResponsesUsageInfo.BuiltInTools[dto.BuildInToolImageGeneration].CallCount)
 }
 
+func TestTerminalResponsesUsageAndShellDeltas(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	for _, event := range []string{"completed", "done", "incomplete", "failed", "cancelled", "canceled"} {
+		t.Run(event, func(t *testing.T) {
+			frames := []string{
+				`{"type":"response.shell_call_output_content.delta","delta":{"stdout":"hello"}}`,
+				`{"type":"response.shell_call_output_content.delta","delta":{"stderr":"warning"}}`,
+				`{"type":"response.output_text.delta","delta":"some text"}`,
+				`{"type":"response.` + event + `","response":{"usage":{"input_tokens":100,"output_tokens":7,"input_tokens_details":{"cache_write_tokens":70,"cache_write_tokens_details":{"ttl_12h_tokens":40,"ttl_30m_tokens":30}}}}}`,
+				`{"type":"response.` + event + `","response":{"usage":{"output_tokens":0}}}`,
+			}
+			c, w, resp, info := newResponsesChatTestContext(t, "data: "+strings.Join(frames, "\n\ndata: ")+"\n\n", true)
+			u, err := OaiResponsesStreamHandler(c, info, resp)
+			require.Nil(t, err)
+			for _, frame := range frames {
+				require.Contains(t, w.Body.String(), frame)
+			}
+			require.Equal(t, 100, u.PromptTokens)
+			require.Zero(t, u.CompletionTokens)
+			require.Equal(t, 100, u.TotalTokens)
+			require.Equal(t, 40, u.PromptTokensDetails.CacheWrite12hTokens())
+		})
+	}
+}
+
 func runResponsesImageBillingStream(t *testing.T, events ...string) *relaycommon.RelayInfo {
 	t.Helper()
 	gin.SetMode(gin.TestMode)

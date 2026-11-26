@@ -52,9 +52,14 @@ func (m *RWMap[K, V]) AddAll(other map[K]V) {
 }
 
 func (m *RWMap[K, V]) Clear() {
+	m.ReplaceAll(make(map[K]V))
+}
+
+// ReplaceAll takes ownership of data. Callers must not modify it afterwards.
+func (m *RWMap[K, V]) ReplaceAll(data map[K]V) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.data = make(map[K]V)
+	m.data = data
 }
 
 func (m *RWMap[K, V]) ReadAll() map[K]V {

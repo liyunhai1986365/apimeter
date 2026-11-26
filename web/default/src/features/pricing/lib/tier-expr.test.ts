@@ -24,7 +24,6 @@ import {
   CACHE_MODE_GENERIC,
   CACHE_MODE_TIMED,
   createDefaultVisualConfig,
-  evalExprLocally,
   generateExprFromVisualConfig,
   getTierCacheMode,
   isVisualPriceEnabled,
@@ -33,80 +32,6 @@ import {
   setVisualTierPriceEnabled,
   tryParseVisualConfig,
 } from './tier-expr'
-
-const emptyExtras = {
-  cacheReadTokens: 0,
-  cacheCreateTokens: 0,
-  cacheCreate1hTokens: 0,
-  imageTokens: 0,
-  imageOutputTokens: 0,
-  audioInputTokens: 0,
-  audioOutputTokens: 0,
-}
-
-describe('evalExprLocally', () => {
-  test('supports request helper functions used by server expressions', () => {
-    const result = evalExprLocally(
-      'param("resolution") == "1080p" ? tier("request", c * 4) : tier("base", c * 2)',
-      0,
-      100,
-      emptyExtras
-    )
-
-    assert.equal(result.error, null)
-    assert.equal(result.cost, 200)
-    assert.equal(result.matchedTier, 'base')
-  })
-
-  test('supports expr nil literal in request-aware expressions', () => {
-    const result = evalExprLocally(
-      `param("resolution") == "1080p"
-        ? (param("content.#(type==\\"video_url\\").video_url.url") != nil
-            ? tier("1080p_video_input", c * 4.3055555556)
-            : tier("1080p_no_video_input", c * 7.0833333333))
-        : (param("content.#(type==\\"video_url\\").video_url.url") != nil
-            ? tier("480_720p_video_input", c * 3.8888888889)
-            : tier("480_720p_no_video_input", c * 6.3888888889))`,
-      0,
-      100,
-      emptyExtras
-    )
-
-    assert.equal(result.error, null)
-    assert.ok(Math.abs(result.cost - 638.88888889) < 0.00000001)
-    assert.equal(result.matchedTier, '480_720p_no_video_input')
-  })
-
-  test('supports pixels helper used by image-size pricing expressions', () => {
-    const result = evalExprLocally(
-      `pixels("2048x2048") > 2360000
-        ? tier("gt_236mp", 0.60 * 1000000)
-        : tier("lte_236mp", 0.30 * 1000000)`,
-      0,
-      0,
-      emptyExtras
-    )
-
-    assert.equal(result.error, null)
-    assert.equal(result.cost, 600000)
-    assert.equal(result.matchedTier, 'gt_236mp')
-  })
-
-  test('supports named image resolution tiers in pixels helper', () => {
-    const result = evalExprLocally(
-      `pixels("2K") > 2360000
-        ? tier("gt_236mp", 0.60 * 1000000)
-        : tier("lte_236mp", 0.30 * 1000000)`,
-      0,
-      0,
-      emptyExtras
-    )
-
-    assert.equal(result.error, null)
-    assert.equal(result.cost, 600000)
-    assert.equal(result.matchedTier, 'gt_236mp')
-  })
-})
 
 describe('visual billing expression config', () => {
   const seedanceExpr =
@@ -784,9 +709,35 @@ describe('billing formula preservation regressions', () => {
     }
   })
 
+  test('re-saving a time rule keeps its decoded timezone', () => {
+    for (const condition of [
+      'hour("Asia/Shanghai") >= 9',
+      'hour("Asia/Shanghai") >= 22 || hour("Asia/Shanghai") < 6',
+    ]) {
+      const rule = `(${condition} ? 2 : 1)`
+      const escaped = rule.replaceAll('/', '\\u002f')
+      const state = createPricingEditorState(
+        'test',
+        'tier("base", p * 1)',
+        escaped
+      )
+      assert.equal(state.mode, 'visual')
+      const time = state.ruleGroups[0].conditions[0]
+      assert.equal(time.source, 'time')
+      assert.equal(time.timezone, 'Asia/Shanghai')
+      const saved = editPricingRules(state, state.ruleGroups)
+      assert.deepEqual(
+        tryParseRequestRuleExpr(saved.requestRuleExpr),
+        tryParseRequestRuleExpr(rule)
+      )
+      assert.ok(saved.requestRuleExpr.includes('Asia/Shanghai'))
+    }
+  })
+
   test('preserves valid Expr-only string escapes in raw mode', () => {
     for (const condition of [
       String.raw`header("X\x2dTags") == "pro"`,
+      String.raw`hour("Asia\x2fShanghai") >= 9`,
       String.raw`has(header("X-Tags"), "\x20pro\x20")`,
     ]) {
       const rule = `(${condition} ? 2 : 1)`
@@ -819,10 +770,6 @@ describe('billing formula preservation regressions', () => {
       )
       assert.equal(state.mode, 'raw')
       assert.equal(state.rawExpr, expr)
-      assert.equal(
-        evalExprLocally(state.rawExpr, 100, 100, emptyExtras).cost,
-        350
-      )
     }
   })
 
@@ -850,7 +797,6 @@ describe('billing formula preservation regressions', () => {
       combineBillingExpr(parts.billingExpr, parts.requestRuleExpr),
       expr
     )
-    assert.equal(evalExprLocally(expr, 100, 100, emptyExtras).cost, 250)
   })
 
   test('ignores operators inside quoted strings and scientific coefficients', () => {
@@ -901,9 +847,11 @@ describe('billing formula preservation regressions', () => {
         ],
       })
       assert.match(edited.billingExpr, /^v1:/)
-      const preview = evalExprLocally(edited.rawExpr, 100, 100, emptyExtras)
-      assert.equal(preview.error, null)
-      assert.equal(preview.cost, rules === discount ? 950 : 1900)
+      assert.equal(
+        edited.rawExpr,
+        combineBillingExpr(edited.billingExpr, state.requestRuleExpr)
+      )
+      assert.match(edited.billingExpr, /c\s*\*\s*16/)
     }
   })
 
@@ -914,10 +862,6 @@ describe('billing formula preservation regressions', () => {
       requestRuleExpr: '',
     })
     assert.equal(createPricingEditorState('model', expr, '').mode, 'raw')
-    assert.match(
-      evalExprLocally(expr, 100, 100, emptyExtras).error!,
-      /Unsupported expression version/
-    )
   })
 
   test('makes an edited zero price independent of saving and reopening', () => {

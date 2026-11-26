@@ -66,6 +66,7 @@ var pricingSyncFields = []string{
 	"completion_ratio",
 	"cache_ratio",
 	"create_cache_ratio",
+	"create_cache_1h_ratio",
 	"image_ratio",
 	"audio_ratio",
 	"audio_completion_ratio",
@@ -79,6 +80,7 @@ var numericPricingSyncFields = map[string]bool{
 	"completion_ratio":       true,
 	"cache_ratio":            true,
 	"create_cache_ratio":     true,
+	"create_cache_1h_ratio":  true,
 	"image_ratio":            true,
 	"audio_ratio":            true,
 	"audio_completion_ratio": true,
@@ -389,6 +391,7 @@ func FetchUpstreamRatios(c *gin.Context) {
 				CompletionRatio      float64  `json:"completion_ratio"`
 				CacheRatio           *float64 `json:"cache_ratio"`
 				CreateCacheRatio     *float64 `json:"create_cache_ratio"`
+				CreateCache1hRatio   *float64 `json:"create_cache_1h_ratio"`
 				ImageRatio           *float64 `json:"image_ratio"`
 				AudioRatio           *float64 `json:"audio_ratio"`
 				AudioCompletionRatio *float64 `json:"audio_completion_ratio"`
@@ -405,6 +408,7 @@ func FetchUpstreamRatios(c *gin.Context) {
 			completionRatioMap := make(map[string]float64)
 			cacheRatioMap := make(map[string]float64)
 			createCacheRatioMap := make(map[string]float64)
+			createCache1hRatioMap := make(map[string]float64)
 			imageRatioMap := make(map[string]float64)
 			audioRatioMap := make(map[string]float64)
 			audioCompletionRatioMap := make(map[string]float64)
@@ -432,6 +436,9 @@ func FetchUpstreamRatios(c *gin.Context) {
 				}
 				if item.CreateCacheRatio != nil {
 					createCacheRatioMap[item.ModelName] = *item.CreateCacheRatio
+				}
+				if item.CreateCache1hRatio != nil {
+					createCache1hRatioMap[item.ModelName] = *item.CreateCache1hRatio
 				}
 				if item.ImageRatio != nil {
 					imageRatioMap[item.ModelName] = *item.ImageRatio
@@ -466,6 +473,9 @@ func FetchUpstreamRatios(c *gin.Context) {
 			}
 			if len(createCacheRatioMap) > 0 {
 				converted["create_cache_ratio"] = valueMap(createCacheRatioMap)
+			}
+			if len(createCache1hRatioMap) > 0 {
+				converted["create_cache_1h_ratio"] = valueMap(createCache1hRatioMap)
 			}
 			if len(imageRatioMap) > 0 {
 				converted["image_ratio"] = valueMap(imageRatioMap)

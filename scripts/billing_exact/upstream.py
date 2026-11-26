@@ -112,14 +112,31 @@ class Handler(BaseHTTPRequestHandler):
                 "choices": [{"index": 0, "message": message, "finish_reason": "stop"}],
             })
         chunk = {**common, "object": "chat.completion.chunk"}
-        self.sse([
-            (None, {**chunk, "choices": [{"index": 0, "delta": message, "finish_reason": None}]}),
-            (None, {**chunk, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}], "usage": CHAT_USAGE}),
-            (None, "[DONE]"),
-        ])
+        start = {**chunk, "choices": [{"index": 0, "delta": message, "finish_reason": None}]}
+        stop = {**chunk, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]}
+        layout = body.get("messages", [{}])[0].get("content")
+        if layout == "usage_before_stop":
+            frames = [start, {**chunk, "choices": [], "usage": CHAT_USAGE}, stop]
+        elif layout == "split_usage":
+            frames = [{**start, "usage": {"prompt_tokens": CHAT_USAGE["prompt_tokens"]}},
+                      {**stop, "usage": {"completion_tokens": CHAT_USAGE["completion_tokens"]}}]
+        elif layout in ("update_prompt_and_total", "update_completion", "update_completion_and_total"):
+            p, c = CHAT_USAGE["prompt_tokens"], CHAT_USAGE["completion_tokens"]
+            early, final = {
+                "update_prompt_and_total": ({"prompt_tokens": p, "completion_tokens": 4, "total_tokens": p + 4},
+                                            {"prompt_tokens": p, "total_tokens": p + c}),
+                "update_completion": ({"prompt_tokens": p, "total_tokens": p + 4}, {"completion_tokens": c}),
+                "update_completion_and_total": ({"prompt_tokens": 2, "completion_tokens": c, "total_tokens": 2 + c},
+                                                {"completion_tokens": c, "total_tokens": p + c}),
+            }[layout]
+            frames = [{**start, "usage": early}, {**stop, "usage": final}]
+        else:
+            frames = [start, {**stop, "usage": CHAT_USAGE}]
+        self.sse([(None, frame) for frame in [*frames, "[DONE]"]])
 
     def claude(self, body):
-        usage = {"input_tokens": 100, "output_tokens": 20, "cache_creation_input_tokens": 10, "cache_read_input_tokens": 5}
+        usage = {"input_tokens": 100, "output_tokens": 20, "cache_creation_input_tokens": 10, "cache_read_input_tokens": 5,
+                 "cache_creation": {"ephemeral_5m_input_tokens": 3, "ephemeral_1h_input_tokens": 7}}
         text = "mock claude answer"
         message = {
             "id": "msg_mock", "type": "message", "role": "assistant", "model": body["model"],

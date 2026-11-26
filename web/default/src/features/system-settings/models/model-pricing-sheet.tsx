@@ -76,6 +76,7 @@ const createModelPricingSchema = (t: (key: string) => string) =>
     ratio: z.string().optional(),
     cacheRatio: z.string().optional(),
     createCacheRatio: z.string().optional(),
+    createCache1hRatio: z.string().optional(),
     completionRatio: z.string().optional(),
     imageRatio: z.string().optional(),
     audioRatio: z.string().optional(),
@@ -91,6 +92,7 @@ type LaneKey =
   | 'completion'
   | 'cache'
   | 'createCache'
+  | 'createCache1h'
   | 'image'
   | 'audioInput'
   | 'audioOutput'
@@ -101,6 +103,7 @@ export type ModelRatioData = {
   ratio?: string
   cacheRatio?: string
   createCacheRatio?: string
+  createCache1hRatio?: string
   completionRatio?: string
   imageRatio?: string
   audioRatio?: string
@@ -140,6 +143,7 @@ const EMPTY_LANE_PRICES: Record<LaneKey, string> = {
   completion: '',
   cache: '',
   createCache: '',
+  createCache1h: '',
   image: '',
   audioInput: '',
   audioOutput: '',
@@ -149,6 +153,7 @@ const EMPTY_LANE_ENABLED: Record<LaneKey, boolean> = {
   completion: false,
   cache: false,
   createCache: false,
+  createCache1h: false,
   image: false,
   audioInput: false,
   audioOutput: false,
@@ -158,6 +163,7 @@ const ratioFieldByLane: Record<LaneKey, keyof ModelPricingFormValues> = {
   completion: 'completionRatio',
   cache: 'cacheRatio',
   createCache: 'createCacheRatio',
+  createCache1h: 'createCache1hRatio',
   image: 'imageRatio',
   audioInput: 'audioRatio',
   audioOutput: 'audioCompletionRatio',
@@ -184,9 +190,14 @@ const laneConfigs: Array<{
   {
     key: 'createCache',
     titleKey: 'Cache write price (5m)',
-    descriptionKey:
-      'Configured cache write price is the 5m price. 1h cache writes are automatically settled at 1.6x.',
+    descriptionKey: 'USD price per 1M tokens.',
     placeholder: '3.75',
+  },
+  {
+    key: 'createCache1h',
+    titleKey: 'Cache Write (1h) Price',
+    descriptionKey: 'Leave empty to use 1.6 times the 5m price.',
+    placeholder: '6',
   },
   {
     key: 'image',
@@ -252,6 +263,7 @@ function createInitialLaneState(data?: ModelRatioData | null) {
     completion: deriveLanePrice(data.completionRatio, promptPrice),
     cache: deriveLanePrice(data.cacheRatio, promptPrice),
     createCache: deriveLanePrice(data.createCacheRatio, promptPrice),
+    createCache1h: deriveLanePrice(data.createCache1hRatio, promptPrice),
     image: deriveLanePrice(data.imageRatio, promptPrice),
     audioInput: audioInputPrice,
     audioOutput: deriveLanePrice(data.audioCompletionRatio, audioInputPrice),
@@ -264,6 +276,7 @@ function createInitialLaneState(data?: ModelRatioData | null) {
       completion: hasValue(data.completionRatio),
       cache: hasValue(data.cacheRatio),
       createCache: hasValue(data.createCacheRatio),
+      createCache1h: hasValue(data.createCache1hRatio),
       image: hasValue(data.imageRatio),
       audioInput: hasValue(data.audioRatio),
       audioOutput: hasValue(data.audioCompletionRatio),
@@ -347,12 +360,15 @@ function buildPreviewRows(
         laneEnabled.createCache && lanePrices.createCache
           ? `$${lanePrices.createCache}`
           : t('Empty'),
-      description:
-        laneEnabled.createCache && lanePrices.createCache
-          ? t('1h auto-settled: ${{value}} per 1M tokens', {
-              value: formatDerivedCacheCreate1hValue(lanePrices.createCache),
-            })
-          : t('1h cache writes are automatically settled at 1.6x.'),
+    },
+    {
+      key: 'createCache1h',
+      label: t('Cache Write (1h) Price'),
+      value: laneEnabled.createCache1h && lanePrices.createCache1h
+        ? `$${lanePrices.createCache1h}`
+        : laneEnabled.createCache && lanePrices.createCache
+          ? `$${formatDerivedCacheCreate1hValue(lanePrices.createCache)}`
+          : t('Empty'),
     },
     {
       key: 'image',
@@ -444,6 +460,7 @@ export function ModelPricingEditorPanel({
       ratio: '',
       cacheRatio: '',
       createCacheRatio: '',
+      createCache1hRatio: '',
       completionRatio: '',
       imageRatio: '',
       audioRatio: '',
@@ -461,6 +478,7 @@ export function ModelPricingEditorPanel({
         ratio: editData.ratio || '',
         cacheRatio: editData.cacheRatio || '',
         createCacheRatio: editData.createCacheRatio || '',
+        createCache1hRatio: editData.createCache1hRatio || '',
         completionRatio: editData.completionRatio || '',
         imageRatio: editData.imageRatio || '',
         audioRatio: editData.audioRatio || '',
@@ -482,6 +500,7 @@ export function ModelPricingEditorPanel({
         ratio: '',
         cacheRatio: '',
         createCacheRatio: '',
+        createCache1hRatio: '',
         completionRatio: '',
         imageRatio: '',
         audioRatio: '',
@@ -652,6 +671,7 @@ export function ModelPricingEditorPanel({
         editData.completionRatio,
         editData.cacheRatio,
         editData.createCacheRatio,
+        editData.createCache1hRatio,
         editData.imageRatio,
         editData.audioRatio,
         editData.audioCompletionRatio,
@@ -720,6 +740,7 @@ export function ModelPricingEditorPanel({
       ratio: values.ratio || '',
       cacheRatio: values.cacheRatio || '',
       createCacheRatio: values.createCacheRatio || '',
+      createCache1hRatio: values.createCache1hRatio || '',
       completionRatio: values.completionRatio || '',
       imageRatio: values.imageRatio || '',
       audioRatio: values.audioRatio || '',
@@ -1019,10 +1040,6 @@ function PriceLane(props: {
 }) {
   const { t } = useTranslation()
   const effectiveDisabled = props.disabled || !props.enabled
-  const derivedCacheCreate1hValue =
-    props.laneKey === 'createCache'
-      ? formatDerivedCacheCreate1hValue(props.value)
-      : ''
 
   return (
     <Field
@@ -1051,15 +1068,9 @@ function PriceLane(props: {
         onChange={props.onChange}
       />
       <FieldDescription>
-        {props.enabled && props.laneKey === 'createCache'
-          ? derivedCacheCreate1hValue
-            ? t('1h auto-settled: ${{value}} per 1M tokens', {
-                value: derivedCacheCreate1hValue,
-              })
-            : t('1h cache writes are automatically settled at 1.6x.')
-          : props.enabled
-            ? t('USD price per 1M tokens.')
-            : t('Disabled lanes are omitted on save.')}
+        {props.enabled
+          ? t('USD price per 1M tokens.')
+          : t('Disabled lanes are omitted on save.')}
       </FieldDescription>
     </Field>
   )

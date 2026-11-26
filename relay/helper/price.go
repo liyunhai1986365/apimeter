@@ -40,8 +40,6 @@ func preConsumeQuotaRangeError(modelName string, clamp *common.QuotaClamp) error
 	return fmt.Errorf("model %s pre-consume quota is out of range: operation=%s kind=%s value=%g", modelName, clamp.Op, clamp.Kind, clamp.Original)
 }
 
-// https://docs.claude.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration
-const claudeCacheCreation1hMultiplier = 6 / 3.75
 const seedance2TaskPreConsumeUSDPerSecond = 0.5
 
 // defaultTieredPreConsumeMaxTokens is the fallback completion-token estimate
@@ -99,6 +97,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	var cacheCreationRatio float64
 	var cacheCreationRatio5m float64
 	var cacheCreationRatio1h float64
+	var configured1h bool
 	var audioRatio float64
 	var audioCompletionRatio float64
 	var freeModel bool
@@ -123,8 +122,10 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		cacheRatio, _ = ratio_setting.GetCacheRatio(info.OriginModelName)
 		cacheCreationRatio, _ = ratio_setting.GetCreateCacheRatio(info.OriginModelName)
 		cacheCreationRatio5m = cacheCreationRatio
-		// 固定1h和5min缓存写入价格的比例
-		cacheCreationRatio1h = cacheCreationRatio * claudeCacheCreation1hMultiplier
+		cacheCreationRatio1h, configured1h = ratio_setting.GetCreateCache1hRatio(info.OriginModelName)
+		if !configured1h {
+			cacheCreationRatio1h = cacheCreationRatio * ratio_setting.LegacyCache1hMultiplier
+		}
 		imageRatio, _ = ratio_setting.GetImageRatio(info.OriginModelName)
 		audioRatio = ratio_setting.GetAudioRatio(info.OriginModelName)
 		audioCompletionRatio = ratio_setting.GetAudioCompletionRatio(info.OriginModelName)
@@ -179,6 +180,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		CacheCreationRatio:   cacheCreationRatio,
 		CacheCreation5mRatio: cacheCreationRatio5m,
 		CacheCreation1hRatio: cacheCreationRatio1h,
+		FreeCacheCreation1h:  configured1h && cacheCreationRatio1h == 0,
 		QuotaToPreConsume:    preConsumedQuota,
 	}
 	if usePrice {

@@ -12,9 +12,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/relaykit/types"
-	"github.com/QuantumNous/new-api/service"
-
-	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,7 +38,7 @@ func handleClaudeFormat(c *gin.Context, data string, info *relaycommon.RelayInfo
 	}
 
 	if streamResponse.Usage != nil {
-		info.ClaudeConvertInfo.Usage = streamResponse.Usage
+		info.EnsureClaudeConvertInfo().Usage = streamResponse.Usage
 	}
 	result, err := relayconvert.ConvertStreamResponse(c, info, types.RelayFormatClaude, &streamResponse)
 	if err != nil {
@@ -129,34 +126,6 @@ func processCompletionsStreamResponse(streamResponse dto.CompletionsStreamRespon
 	for _, choice := range streamResponse.Choices {
 		responseTextBuilder.WriteString(choice.Text)
 	}
-}
-
-func handleLastResponse(lastStreamData string, responseId *string, createAt *int64,
-	systemFingerprint *string, model *string, usage **dto.Usage,
-	containStreamUsage *bool, info *relaycommon.RelayInfo,
-	shouldSendLastResp *bool) error {
-
-	var lastStreamResponse dto.ChatCompletionsStreamResponse
-	if err := common.Unmarshal(common.StringToByteSlice(lastStreamData), &lastStreamResponse); err != nil {
-		return err
-	}
-
-	*responseId = lastStreamResponse.Id
-	*createAt = lastStreamResponse.Created
-	*systemFingerprint = lastStreamResponse.GetSystemFingerprint()
-	*model = lastStreamResponse.Model
-
-	if service.ValidUsage(lastStreamResponse.Usage) {
-		*containStreamUsage = true
-		*usage = lastStreamResponse.Usage
-		if !info.ShouldIncludeUsage {
-			*shouldSendLastResp = lo.SomeBy(lastStreamResponse.Choices, func(choice dto.ChatCompletionsStreamResponseChoice) bool {
-				return choice.Delta.GetContentString() != "" || choice.Delta.GetReasoningContent() != ""
-			})
-		}
-	}
-
-	return nil
 }
 
 func HandleFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, lastStreamData string,

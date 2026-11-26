@@ -69,7 +69,6 @@ import {
   MODEL_CATEGORY_VALUES,
   getModelCategoryLabels,
 } from '@/features/pricing/constants'
-import { formatDerivedCacheCreate1hValue } from '@/features/pricing/lib/price'
 import type {
   ModelCapability,
   ModelCategory,
@@ -121,6 +120,7 @@ const extendedModelFormSchema = z.object({
   ratio: z.string().optional(),
   cacheRatio: z.string().optional(),
   createCacheRatio: z.string().optional(),
+  createCache1hRatio: z.string().optional(),
   completionRatio: z.string().optional(),
   imageRatio: z.string().optional(),
   audioRatio: z.string().optional(),
@@ -189,6 +189,7 @@ const pricingFields = [
   'ratio',
   'cacheRatio',
   'createCacheRatio',
+  'createCache1hRatio',
   'completionRatio',
   'imageRatio',
   'audioRatio',
@@ -296,6 +297,7 @@ export function ModelMutateDrawer({
       GroupDisplayConfig: '{"categories":[],"groups":[]}',
       DefaultUseAutoGroup: false,
       CreateCacheRatio: '',
+      CreateCache1hRatio: '',
       'group_ratio_setting.group_special_usable_group': '{}',
       'grok.violation_deduction_enabled': false,
       'grok.violation_deduction_amount': 0,
@@ -352,6 +354,7 @@ export function ModelMutateDrawer({
       ratio: '',
       cacheRatio: '',
       createCacheRatio: '',
+      createCache1hRatio: '',
       completionRatio: '',
       imageRatio: '',
       audioRatio: '',
@@ -421,29 +424,6 @@ export function ModelMutateDrawer({
       : t(ratioDescriptionKey)
   }
 
-  const getCacheCreateFieldDescription = (value?: string) => {
-    const derived1hValue = formatDerivedCacheCreate1hValue(value)
-
-    if (pricingSubMode === 'price') {
-      return derived1hValue
-        ? t(
-            'Configured cache write price is the 5m price. 1h cache writes are automatically settled at 1.6x: ${{value}} per 1M tokens.',
-            { value: derived1hValue }
-          )
-        : t(
-            'Configured cache write price is the 5m price. 1h cache writes are automatically settled at 1.6x.'
-          )
-    }
-
-    return derived1hValue
-      ? t(
-          'Configured create cache ratio is the 5m ratio. 1h cache writes are automatically settled at 1.6x: {{value}}.',
-          { value: derived1hValue }
-        )
-      : t(
-          'Configured create cache ratio is the 5m ratio. 1h cache writes are automatically settled at 1.6x.'
-        )
-  }
 
   // Load model data for editing and ratio configuration
   useEffect(() => {
@@ -481,6 +461,7 @@ export function ModelMutateDrawer({
         ratio: '',
         cacheRatio: '',
         createCacheRatio: '',
+        createCache1hRatio: '',
         completionRatio: '',
         imageRatio: '',
         audioRatio: '',
@@ -504,6 +485,10 @@ export function ModelMutateDrawer({
         )
         const createCacheMap = safeJsonParse<Record<string, number>>(
           modelSettings.CreateCacheRatio,
+          { fallback: {}, silent: true }
+        )
+        const createCache1hMap = safeJsonParse<Record<string, number>>(
+          modelSettings.CreateCache1hRatio,
           { fallback: {}, silent: true }
         )
         const completionMap = safeJsonParse<Record<string, number>>(
@@ -537,6 +522,7 @@ export function ModelMutateDrawer({
         const ratio = ratioMap[modelName]
         const cacheRatio = cacheMap[modelName]
         const createCacheRatio = createCacheMap[modelName]
+        const createCache1hRatio = createCache1hMap[modelName]
         const completionRatio = completionMap[modelName]
         const imageRatio = imageMap[modelName]
         const audioRatio = audioMap[modelName]
@@ -561,6 +547,7 @@ export function ModelMutateDrawer({
             ratio: ratio?.toString() || '',
             cacheRatio: cacheRatio?.toString() || '',
             createCacheRatio: createCacheRatio?.toString() || '',
+            createCache1hRatio: createCache1hRatio?.toString() || '',
             completionRatio: completionRatio?.toString() || '',
             imageRatio: imageRatio?.toString() || '',
             audioRatio: audioRatio?.toString() || '',
@@ -590,6 +577,7 @@ export function ModelMutateDrawer({
             ratio: ratio?.toString() || '',
             cacheRatio: cacheRatio?.toString() || '',
             createCacheRatio: createCacheRatio?.toString() || '',
+            createCache1hRatio: createCache1hRatio?.toString() || '',
             completionRatio: completionRatio?.toString() || '',
             imageRatio: imageRatio?.toString() || '',
             audioRatio: audioRatio?.toString() || '',
@@ -600,6 +588,7 @@ export function ModelMutateDrawer({
             !!(
               cacheRatio ||
               createCacheRatio ||
+              createCache1hRatio !== undefined ||
               imageRatio ||
               audioRatio ||
               audioCompletionRatio
@@ -645,6 +634,7 @@ export function ModelMutateDrawer({
         ratio: '',
         cacheRatio: '',
         createCacheRatio: '',
+        createCache1hRatio: '',
         completionRatio: '',
         imageRatio: '',
         audioRatio: '',
@@ -675,6 +665,7 @@ export function ModelMutateDrawer({
           ratio,
           cacheRatio,
           createCacheRatio,
+          createCache1hRatio,
           completionRatio,
           imageRatio,
           audioRatio,
@@ -714,6 +705,10 @@ export function ModelMutateDrawer({
               modelSettings.CreateCacheRatio,
               { fallback: {}, silent: true }
             )
+            const createCache1hMap = safeJsonParse<Record<string, number>>(
+              modelSettings.CreateCache1hRatio,
+              { fallback: {}, silent: true }
+            )
             const completionMap = safeJsonParse<Record<string, number>>(
               modelSettings.CompletionRatio,
               { fallback: {}, silent: true }
@@ -745,6 +740,7 @@ export function ModelMutateDrawer({
                 ratioMap,
                 cacheMap,
                 createCacheMap,
+                createCache1hMap,
                 completionMap,
                 imageMap,
                 audioMap,
@@ -757,6 +753,7 @@ export function ModelMutateDrawer({
                 ratio,
                 cacheRatio,
                 createCacheRatio,
+                createCache1hRatio,
                 completionRatio,
                 imageRatio,
                 audioRatio,
@@ -810,6 +807,18 @@ export function ModelMutateDrawer({
               updates.push({
                 key: 'CreateCacheRatio',
                 value: newCreateCacheRatio,
+              })
+            }
+            const newCreateCache1hRatio = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.createCache1hMap)
+            )
+            if (
+              newCreateCache1hRatio !==
+              normalizeJsonString(modelSettings.CreateCache1hRatio)
+            ) {
+              updates.push({
+                key: 'CreateCache1hRatio',
+                value: newCreateCache1hRatio,
               })
             }
 
@@ -1747,7 +1756,38 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                              {getCacheCreateFieldDescription(field.value)}
+                              {t('Cache write price (5m)')}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='createCache1hRatio'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {pricingSubMode === 'price'
+                                ? t('Cache Write (1h) Price')
+                                : t('Cache Write (1h)')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type='text'
+                                placeholder='1.0'
+                                {...field}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  if (validateNumber(value)) {
+                                    field.onChange(value)
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t('Leave empty to use 1.6 times the 5m price.')}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>

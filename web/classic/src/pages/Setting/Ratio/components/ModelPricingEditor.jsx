@@ -555,7 +555,7 @@ export default function ModelPricingEditor({
                         }
                       />
                       <PriceInput
-                        label={t('缓存创建价格')}
+                        label={`${t('缓存创建价格')} (5m)`}
                         value={selectedModel.createCachePrice}
                         placeholder={t('输入 $/1M tokens')}
                         onChange={(value) =>
@@ -581,6 +581,38 @@ export default function ModelPricingEditor({
                           !isOptionalFieldEnabled(
                             selectedModel,
                             'createCachePrice',
+                          )
+                            ? t('当前未启用，需要时再打开即可。')
+                            : ''
+                        }
+                      />
+                      <PriceInput
+                        label={`${t('缓存创建价格')} (1h)`}
+                        value={selectedModel.createCache1hPrice}
+                        placeholder={t('输入 $/1M tokens')}
+                        onChange={(value) =>
+                          handleNumericFieldChange('createCache1hPrice', value)
+                        }
+                        headerAction={
+                          <Switch
+                            size='small'
+                            checked={isOptionalFieldEnabled(
+                              selectedModel,
+                              'createCache1hPrice',
+                            )}
+                            onChange={(checked) =>
+                              handleOptionalFieldToggle('createCache1hPrice', checked)
+                            }
+                          />
+                        }
+                        hidden={
+                          !isOptionalFieldEnabled(selectedModel, 'createCache1hPrice')
+                        }
+                        disabled={!hasValue(selectedModel.inputPrice)}
+                        extraText={
+                          !isOptionalFieldEnabled(
+                            selectedModel,
+                            'createCache1hPrice',
                           )
                             ? t('当前未启用，需要时再打开即可。')
                             : ''

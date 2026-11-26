@@ -118,6 +118,7 @@ function calculateTokenPrice(
         ? base * Number(model.create_cache_ratio)
         : NaN
     case 'create_cache_1h':
+      if (hasRatio(model.create_cache_1h_ratio)) return base * Number(model.create_cache_1h_ratio)
       return hasRatio(model.create_cache_ratio)
         ? base *
             Number(model.create_cache_ratio) *

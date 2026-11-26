@@ -1041,7 +1041,7 @@ func TestTieredSettlementLogPreservesNormalizedCacheUsage(t *testing.T) {
 			require.True(t, ok)
 			assert.Equal(t, map[string]interface{}{
 				"p": float64(0), "c": float64(0), "len": float64(1000),
-				"cr": float64(0), "cc": tc.wantCC, "cc1h": float64(tc.hour),
+				"cr": float64(0), "cc": tc.wantCC, "cc1h": float64(tc.hour), "cc12h": float64(0),
 				"img": float64(0), "img_o": float64(0), "ai": float64(0), "ao": float64(0),
 			}, saved, "record exact expression inputs, including explicit zeros")
 			assert.Equal(t, float64(tc.fiveMin), decoded["cache_creation_tokens_5m"])
@@ -1226,6 +1226,28 @@ func BenchmarkTieredBilling_Parallel(b *testing.B) {
 			billingexpr.RunExpr(complexTieredExpr, params)
 		}
 	})
+}
+
+func TestOpenAICacheWriteTTLs(t *testing.T) {
+	usage := &dto.Usage{PromptTokens: 10000, PromptTokensDetails: dto.InputTokenDetails{
+		CacheWriteTokens: 7000, CacheWriteTokensDetails: &dto.CacheWriteTokenDetails{TTL30mTokens: 3000, TTL12hTokens: 4000},
+	}}
+	for _, tc := range []struct {
+		expr        string
+		p, cc, long float64
+	}{
+		{"p + cc", 3000, 11000, 0},
+		{"p + cc + cc12h * 0", 3000, 3000, 4000},
+		{"p + cc12h", 6000, 0, 4000},
+		{"p", 14000, 0, 0},
+	} {
+		params := BuildTieredTokenParams(usage, false, billingexpr.UsedVars(tc.expr))
+		require.Equal(t, []float64{tc.p, tc.cc, tc.long, 10000}, []float64{params.P, params.CC, params.CC12h, params.Len}, tc.expr)
+	}
+	usage.PromptTokensDetails.CacheWriteTokensDetails = nil
+	params := BuildTieredTokenParams(usage, false, billingexpr.UsedVars("p + cc + cc12h"))
+	require.Equal(t, float64(7000), params.CC)
+	require.Zero(t, params.CC12h)
 }
 
 func BenchmarkRatioBilling_Parallel(b *testing.B) {

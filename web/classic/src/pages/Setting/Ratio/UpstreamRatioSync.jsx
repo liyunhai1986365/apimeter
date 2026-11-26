@@ -266,6 +266,7 @@ export default function UpstreamRatioSync(props) {
     'completion_ratio',
     'cache_ratio',
     'create_cache_ratio',
+    'create_cache_1h_ratio',
     'image_ratio',
     'audio_ratio',
     'audio_completion_ratio',
@@ -285,6 +286,7 @@ export default function UpstreamRatioSync(props) {
       completion_ratio: t('补全倍率'),
       cache_ratio: t('缓存倍率'),
       create_cache_ratio: t('缓存创建倍率'),
+      create_cache_1h_ratio: `${t('缓存创建倍率')} (1h)`,
       image_ratio: t('图片倍率'),
       audio_ratio: t('音频倍率'),
       audio_completion_ratio: t('音频补全倍率'),
@@ -428,6 +430,7 @@ export default function UpstreamRatioSync(props) {
       CompletionRatio: JSON.parse(props.options.CompletionRatio || '{}'),
       CacheRatio: JSON.parse(props.options.CacheRatio || '{}'),
       CreateCacheRatio: JSON.parse(props.options.CreateCacheRatio || '{}'),
+      CreateCache1hRatio: JSON.parse(props.options.CreateCache1hRatio || '{}'),
       ImageRatio: JSON.parse(props.options.ImageRatio || '{}'),
       AudioRatio: JSON.parse(props.options.AudioRatio || '{}'),
       AudioCompletionRatio: JSON.parse(
@@ -451,6 +454,7 @@ export default function UpstreamRatioSync(props) {
         currentRatios.CompletionRatio[model] !== undefined ||
         currentRatios.CacheRatio[model] !== undefined ||
         currentRatios.CreateCacheRatio[model] !== undefined ||
+        currentRatios.CreateCache1hRatio[model] !== undefined ||
         currentRatios.ImageRatio[model] !== undefined ||
         currentRatios.AudioRatio[model] !== undefined ||
         currentRatios.AudioCompletionRatio[model] !== undefined
@@ -522,6 +526,7 @@ export default function UpstreamRatioSync(props) {
         CompletionRatio: { ...currentRatios.CompletionRatio },
         CacheRatio: { ...currentRatios.CacheRatio },
         CreateCacheRatio: { ...currentRatios.CreateCacheRatio },
+        CreateCache1hRatio: { ...currentRatios.CreateCache1hRatio },
         ImageRatio: { ...currentRatios.ImageRatio },
         AudioRatio: { ...currentRatios.AudioRatio },
         AudioCompletionRatio: { ...currentRatios.AudioCompletionRatio },
@@ -546,6 +551,7 @@ export default function UpstreamRatioSync(props) {
           delete finalRatios.CompletionRatio[model];
           delete finalRatios.CacheRatio[model];
           delete finalRatios.CreateCacheRatio[model];
+          delete finalRatios.CreateCache1hRatio[model];
           delete finalRatios.ImageRatio[model];
           delete finalRatios.AudioRatio[model];
           delete finalRatios.AudioCompletionRatio[model];
@@ -682,6 +688,9 @@ export default function UpstreamRatioSync(props) {
               <Select.Option value='cache_ratio'>{t('缓存倍率')}</Select.Option>
               <Select.Option value='create_cache_ratio'>
                 {t('缓存创建倍率')}
+              </Select.Option>
+              <Select.Option value='create_cache_1h_ratio'>
+                {`${t('缓存创建倍率')} (1h)`}
               </Select.Option>
               <Select.Option value='image_ratio'>{t('图片倍率')}</Select.Option>
               <Select.Option value='audio_ratio'>{t('音频倍率')}</Select.Option>
@@ -1088,6 +1097,9 @@ export default function UpstreamRatioSync(props) {
             CacheRatio: JSON.parse(props.options.CacheRatio || '{}'),
             CreateCacheRatio: JSON.parse(
               props.options.CreateCacheRatio || '{}',
+            ),
+            CreateCache1hRatio: JSON.parse(
+              props.options.CreateCache1hRatio || '{}',
             ),
             ImageRatio: JSON.parse(props.options.ImageRatio || '{}'),
             AudioRatio: JSON.parse(props.options.AudioRatio || '{}'),

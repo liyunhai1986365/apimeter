@@ -134,6 +134,29 @@ func TestSimpleExpr_NoTier(t *testing.T) {
 // Math helper functions
 // ---------------------------------------------------------------------------
 
+func TestMixedNumericTierBranches(t *testing.T) {
+	for _, tc := range []struct {
+		expr        string
+		input, want float64
+	}{
+		{`tier("test",len == 12000 ? p*10 : 0)`, 0, 0},
+		{`tier("test",len == 12000 ? p*10 : 0)`, 12000, 120000},
+		{`tier("test",p == 0 ? (5 % 3) : p*0.5)`, 0, 2},
+		{`tier("test",min(p,p == 0 ? 0 : p*0.5))`, 3, 1.5},
+		{`tier("test",min(p,p == 0 ? 0 : p*0.5))`, 0, 0},
+		{`tier("test",p < 2 ? (p == 0 ? 0 : p*0.5) : 2)`, 2, 2},
+		{`tier("test",p < 2 ? (p == 0 ? 0 : p*0.5) : 2)`, 1, 0.5},
+	} {
+		v, trace, err := billingexpr.RunExpr(tc.expr, billingexpr.TokenParams{P: tc.input, Len: tc.input})
+		require.NoError(t, err)
+		require.Equal(t, tc.want, v)
+		require.Equal(t, "test", trace.MatchedTier)
+		require.Equal(t, tc.want, trace.Cost)
+	}
+	_, err := billingexpr.CompileFromCache(`tier("bad","0")`)
+	require.Error(t, err)
+}
+
 func TestMathHelpers(t *testing.T) {
 	cost, _, err := billingexpr.RunExpr("max(p, c) * 0.5 + min(p, c) * 0.1", billingexpr.TokenParams{P: 300, C: 500})
 	if err != nil {

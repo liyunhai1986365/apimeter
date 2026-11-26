@@ -3,12 +3,14 @@
 import json
 import os
 import secrets
+import socket
 import subprocess
 import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,6 +54,15 @@ class _Services:
         return json.loads(_run(["docker", "exec", self._redis_container,
                                 "redis-cli", "--json", "-2", *map(str, args)]))
 
+    def ping_redis_from_host(self):
+        # The gateway connects to the published port, not the container's loopback.
+        target = urlsplit(self.redis_url)
+        with socket.create_connection((target.hostname, target.port), timeout=3) as sock:
+            sock.sendall(b"PING\r\n")
+            with sock.makefile("rb") as reply:
+                if reply.readline(8) != b"+PONG\r\n":
+                    raise RuntimeError("Published Redis port did not return PONG")
+
 
 @contextmanager
 def local_services(out: Path, *, check_running=lambda: None):
@@ -94,10 +105,9 @@ def local_services(out: Path, *, check_running=lambda: None):
                 check_running()
                 try:
                     svc.db("SELECT 1")
-                    if svc.redis_cmd("PING") != "PONG":
-                        raise RuntimeError("Redis did not return PONG")
+                    svc.ping_redis_from_host()
                     break
-                except RuntimeError as exc:
+                except (OSError, RuntimeError) as exc:
                     if time.monotonic() >= deadline:
                         raise RuntimeError(f"Temporary databases did not become ready: {exc}") from exc
                     time.sleep(0.5)

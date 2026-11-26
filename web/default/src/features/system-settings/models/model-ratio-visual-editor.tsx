@@ -74,6 +74,7 @@ type ModelRatioVisualEditorProps = {
   modelRatio: string
   cacheRatio: string
   createCacheRatio: string
+  createCache1hRatio: string
   completionRatio: string
   imageRatio: string
   audioRatio: string
@@ -92,6 +93,7 @@ type ModelRow = {
   ratio?: string
   cacheRatio?: string
   createCacheRatio?: string
+  createCache1hRatio?: string
   completionRatio?: string
   imageRatio?: string
   audioRatio?: string
@@ -130,19 +132,13 @@ const ratioToPrice = (ratio?: string, denominator?: string) => {
 }
 
 const formatCacheCreatePriceDetail = (
-  createCacheRatio: string | undefined,
+  row: ModelRow,
   inputPrice: string,
   t: (key: string) => string
 ) => {
-  const createCachePrice = ratioToPrice(createCacheRatio, inputPrice)
-  if (!createCachePrice) return ''
-
-  const createCache1hPrice = formatDerivedCacheCreate1hValue(createCachePrice)
-  const auto1hSuffix = createCache1hPrice
-    ? ` · ${t('1h auto-settled')}: $${createCache1hPrice}`
-    : ''
-
-  return `${t('Cache write (5m)')} $${createCachePrice}${auto1hSuffix}`
+  const short = ratioToPrice(row.createCacheRatio, inputPrice)
+  const long = ratioToPrice(row.createCache1hRatio, inputPrice) || formatDerivedCacheCreate1hValue(short)
+  return [short && `${t('Cache write (5m)')} $${short}`, long && `${t('Cache Write (1h)')} $${long}`].filter(Boolean).join(' · ')
 }
 
 const filterBySelectedValues = (
@@ -188,6 +184,7 @@ const getPriceSummary = (row: ModelRow, t: (key: string) => string) => {
     row.completionRatio,
     row.cacheRatio,
     row.createCacheRatio,
+    row.createCache1hRatio,
     row.imageRatio,
     row.audioRatio,
     row.audioCompletionRatio,
@@ -216,8 +213,8 @@ const getPriceDetail = (row: ModelRow, t: (key: string) => string) => {
       `${t('Output')} $${ratioToPrice(row.completionRatio, inputPrice)}`,
     row.cacheRatio &&
       `${t('Cache')} $${ratioToPrice(row.cacheRatio, inputPrice)}`,
-    row.createCacheRatio &&
-      formatCacheCreatePriceDetail(row.createCacheRatio, inputPrice, t),
+    (row.createCacheRatio || row.createCache1hRatio) &&
+      formatCacheCreatePriceDetail(row, inputPrice, t),
   ].filter(Boolean)
 
   return details.length > 0 ? details.join(' · ') : t('Base input price only')
@@ -229,6 +226,7 @@ export const ModelRatioVisualEditor = memo(
     modelRatio,
     cacheRatio,
     createCacheRatio,
+    createCache1hRatio,
     completionRatio,
     imageRatio,
     audioRatio,
@@ -262,6 +260,7 @@ export const ModelRatioVisualEditor = memo(
               fallback: {
                 cacheRatio: false,
                 createCacheRatio: false,
+                createCache1hRatio: false,
                 imageRatio: false,
                 audioRatio: false,
                 audioCompletionRatio: false,
@@ -272,6 +271,7 @@ export const ModelRatioVisualEditor = memo(
             return {
               cacheRatio: false,
               createCacheRatio: false,
+              createCache1hRatio: false,
               imageRatio: false,
               audioRatio: false,
               audioCompletionRatio: false,
@@ -281,6 +281,7 @@ export const ModelRatioVisualEditor = memo(
         return {
           cacheRatio: false,
           createCacheRatio: false,
+          createCache1hRatio: false,
           imageRatio: false,
           audioRatio: false,
           audioCompletionRatio: false,
@@ -307,6 +308,10 @@ export const ModelRatioVisualEditor = memo(
       })
       const createCacheMap = safeJsonParse<Record<string, number>>(
         createCacheRatio,
+        { fallback: {}, context: 'create cache ratios' }
+      )
+      const createCache1hMap = safeJsonParse<Record<string, number>>(
+        createCache1hRatio,
         { fallback: {}, context: 'create cache ratios' }
       )
       const completionMap = safeJsonParse<Record<string, number>>(
@@ -346,6 +351,7 @@ export const ModelRatioVisualEditor = memo(
           ...Object.keys(ratioMap),
           ...Object.keys(cacheMap),
           ...Object.keys(createCacheMap),
+          ...Object.keys(createCache1hMap),
           ...Object.keys(completionMap),
           ...Object.keys(imageMap),
           ...Object.keys(audioMap),
@@ -360,6 +366,7 @@ export const ModelRatioVisualEditor = memo(
         const ratio = ratioMap[name]?.toString() || ''
         const cache = cacheMap[name]?.toString() || ''
         const createCache = createCacheMap[name]?.toString() || ''
+        const createCache1h = createCache1hMap[name]?.toString() || ''
         const completion = completionMap[name]?.toString() || ''
         const image = imageMap[name]?.toString() || ''
         const audio = audioMap[name]?.toString() || ''
@@ -382,6 +389,7 @@ export const ModelRatioVisualEditor = memo(
             ratio,
             cacheRatio: cache,
             createCacheRatio: createCache,
+            createCache1hRatio: createCache1h,
             completionRatio: completion,
             imageRatio: image,
             audioRatio: audio,
@@ -396,6 +404,7 @@ export const ModelRatioVisualEditor = memo(
           ratio,
           cacheRatio: cache,
           createCacheRatio: createCache,
+          createCache1hRatio: createCache1h,
           completionRatio: completion,
           imageRatio: image,
           audioRatio: audio,
@@ -410,6 +419,7 @@ export const ModelRatioVisualEditor = memo(
               completion !== '' ||
               cache !== '' ||
               createCache !== '' ||
+              createCache1h !== '' ||
               image !== '' ||
               audio !== '' ||
               audioCompletion !== ''),
@@ -424,6 +434,7 @@ export const ModelRatioVisualEditor = memo(
       modelRatio,
       cacheRatio,
       createCacheRatio,
+      createCache1hRatio,
       completionRatio,
       imageRatio,
       audioRatio,
@@ -463,6 +474,7 @@ export const ModelRatioVisualEditor = memo(
           ratio: model.ratio,
           cacheRatio: model.cacheRatio,
           createCacheRatio: model.createCacheRatio,
+          createCache1hRatio: model.createCache1hRatio,
           completionRatio: model.completionRatio,
           imageRatio: model.imageRatio,
           audioRatio: model.audioRatio,
@@ -528,6 +540,10 @@ export const ModelRatioVisualEditor = memo(
           createCacheRatio,
           { fallback: {}, silent: true }
         )
+        const createCache1hMap = safeJsonParse<Record<string, number>>(
+          createCache1hRatio,
+          { fallback: {}, silent: true }
+        )
         const completionMap = safeJsonParse<Record<string, number>>(
           completionRatio,
           { fallback: {}, silent: true }
@@ -557,6 +573,7 @@ export const ModelRatioVisualEditor = memo(
         delete ratioMap[name]
         delete cacheMap[name]
         delete createCacheMap[name]
+        delete createCache1hMap[name]
         delete completionMap[name]
         delete imageMap[name]
         delete audioMap[name]
@@ -568,6 +585,7 @@ export const ModelRatioVisualEditor = memo(
         onChange('ModelRatio', JSON.stringify(ratioMap, null, 2))
         onChange('CacheRatio', JSON.stringify(cacheMap, null, 2))
         onChange('CreateCacheRatio', JSON.stringify(createCacheMap, null, 2))
+        onChange('CreateCache1hRatio', JSON.stringify(createCache1hMap, null, 2))
         onChange('CompletionRatio', JSON.stringify(completionMap, null, 2))
         onChange('ImageRatio', JSON.stringify(imageMap, null, 2))
         onChange('AudioRatio', JSON.stringify(audioMap, null, 2))
@@ -595,6 +613,7 @@ export const ModelRatioVisualEditor = memo(
         modelRatio,
         cacheRatio,
         createCacheRatio,
+        createCache1hRatio,
         completionRatio,
         imageRatio,
         audioRatio,
@@ -772,6 +791,10 @@ export const ModelRatioVisualEditor = memo(
           createCacheRatio,
           { fallback: {}, silent: true }
         )
+        const createCache1hMap = safeJsonParse<Record<string, number>>(
+          createCache1hRatio,
+          { fallback: {}, silent: true }
+        )
         const completionMap = safeJsonParse<Record<string, number>>(
           completionRatio,
           { fallback: {}, silent: true }
@@ -812,6 +835,7 @@ export const ModelRatioVisualEditor = memo(
           delete ratioMap[name]
           delete cacheMap[name]
           delete createCacheMap[name]
+          delete createCache1hMap[name]
           delete completionMap[name]
           delete imageMap[name]
           delete audioMap[name]
@@ -836,6 +860,7 @@ export const ModelRatioVisualEditor = memo(
             setIfPresent(ratioMap, name, data.ratio)
             setIfPresent(cacheMap, name, data.cacheRatio)
             setIfPresent(createCacheMap, name, data.createCacheRatio)
+            setIfPresent(createCache1hMap, name, data.createCache1hRatio)
             setIfPresent(completionMap, name, data.completionRatio)
             setIfPresent(imageMap, name, data.imageRatio)
             setIfPresent(audioMap, name, data.audioRatio)
@@ -846,6 +871,7 @@ export const ModelRatioVisualEditor = memo(
             setIfPresent(ratioMap, name, data.ratio)
             setIfPresent(cacheMap, name, data.cacheRatio)
             setIfPresent(createCacheMap, name, data.createCacheRatio)
+            setIfPresent(createCache1hMap, name, data.createCache1hRatio)
             setIfPresent(completionMap, name, data.completionRatio)
             setIfPresent(imageMap, name, data.imageRatio)
             setIfPresent(audioMap, name, data.audioRatio)
@@ -857,6 +883,7 @@ export const ModelRatioVisualEditor = memo(
         onChange('ModelRatio', JSON.stringify(ratioMap, null, 2))
         onChange('CacheRatio', JSON.stringify(cacheMap, null, 2))
         onChange('CreateCacheRatio', JSON.stringify(createCacheMap, null, 2))
+        onChange('CreateCache1hRatio', JSON.stringify(createCache1hMap, null, 2))
         onChange('CompletionRatio', JSON.stringify(completionMap, null, 2))
         onChange('ImageRatio', JSON.stringify(imageMap, null, 2))
         onChange('AudioRatio', JSON.stringify(audioMap, null, 2))
@@ -878,6 +905,7 @@ export const ModelRatioVisualEditor = memo(
         modelRatio,
         cacheRatio,
         createCacheRatio,
+        createCache1hRatio,
         completionRatio,
         imageRatio,
         audioRatio,
@@ -1102,6 +1130,7 @@ export const ModelRatioVisualEditor = memo(
       prevProps.modelRatio === nextProps.modelRatio &&
       prevProps.cacheRatio === nextProps.cacheRatio &&
       prevProps.createCacheRatio === nextProps.createCacheRatio &&
+      prevProps.createCache1hRatio === nextProps.createCache1hRatio &&
       prevProps.completionRatio === nextProps.completionRatio &&
       prevProps.imageRatio === nextProps.imageRatio &&
       prevProps.audioRatio === nextProps.audioRatio &&

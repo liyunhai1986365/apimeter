@@ -31,12 +31,13 @@ import {
 } from './expr-syntax'
 
 export const CACHE_MODE_TIMED = 'timed'
+export const CACHE_MODE_OPENAI = 'openai'
 export const CACHE_MODE_GENERIC = 'generic'
-export type CacheMode = typeof CACHE_MODE_TIMED | typeof CACHE_MODE_GENERIC
+export type CacheMode = typeof CACHE_MODE_TIMED | typeof CACHE_MODE_GENERIC | typeof CACHE_MODE_OPENAI
 
 export type TokenTierCondition = {
   source: 'token'
-  var: 'p' | 'c' | 'len' | 'cr' | 'cc' | 'cc1h' | 'img' | 'img_o' | 'ai' | 'ao'
+  var: 'p' | 'c' | 'len' | 'cr' | 'cc' | 'cc1h' | 'cc12h' | 'img' | 'img_o' | 'ai' | 'ao'
   op: '<' | '<=' | '>' | '>='
   value: number | string
 }
@@ -54,6 +55,7 @@ export type VisualTier = {
   cache_read_unit_cost?: number
   cache_create_unit_cost?: number
   cache_create_1h_unit_cost?: number
+  cache_create_12h_unit_cost?: number
   image_unit_cost?: number
   image_output_unit_cost?: number
   audio_input_unit_cost?: number
@@ -105,17 +107,19 @@ export function setVisualTierCacheMode(
   tier: VisualTier,
   mode: CacheMode
 ): VisualTier {
-  const next = { ...tier, cache_mode: mode }
-  return mode === CACHE_MODE_GENERIC
-    ? setVisualTierPriceEnabled(next, 'cache_create_1h_unit_cost', false)
-    : next
+  let next: VisualTier = { ...tier, cache_mode: mode }
+  if (mode !== CACHE_MODE_TIMED) next = setVisualTierPriceEnabled(next, 'cache_create_1h_unit_cost', false)
+  if (mode !== CACHE_MODE_OPENAI) next = setVisualTierPriceEnabled(next, 'cache_create_12h_unit_cost', false)
+  return next
 }
 
 export function getTierCacheMode(
   tier: Partial<VisualTier> | null | undefined
 ): CacheMode {
+  if (tier?.cache_mode === CACHE_MODE_OPENAI) return CACHE_MODE_OPENAI
   if (tier?.cache_mode === CACHE_MODE_TIMED) return CACHE_MODE_TIMED
   if (tier?.cache_mode === CACHE_MODE_GENERIC) return CACHE_MODE_GENERIC
+  if (tier && isVisualPriceEnabled(tier, 'cache_create_12h_unit_cost')) return CACHE_MODE_OPENAI
   return tier && isVisualPriceEnabled(tier, 'cache_create_1h_unit_cost')
     ? CACHE_MODE_TIMED
     : CACHE_MODE_GENERIC
@@ -136,6 +140,7 @@ export function normalizeVisualTier(
     cache_read_unit_cost: Number(tier.cache_read_unit_cost) || 0,
     cache_create_unit_cost: Number(tier.cache_create_unit_cost) || 0,
     cache_create_1h_unit_cost: Number(tier.cache_create_1h_unit_cost) || 0,
+    cache_create_12h_unit_cost: Number(tier.cache_create_12h_unit_cost) || 0,
     image_unit_cost: Number(tier.image_unit_cost) || 0,
     image_output_unit_cost: Number(tier.image_output_unit_cost) || 0,
     audio_input_unit_cost: Number(tier.audio_input_unit_cost) || 0,
@@ -163,6 +168,7 @@ function normalizeTierCondition(
           'cr',
           'cc',
           'cc1h',
+          'cc12h',
           'img',
           'img_o',
           'ai',
@@ -306,6 +312,7 @@ const TOKEN_FIELD_BY_VAR: Record<string, keyof VisualTier> = {
   cr: 'cache_read_unit_cost',
   cc: 'cache_create_unit_cost',
   cc1h: 'cache_create_1h_unit_cost',
+  cc12h: 'cache_create_12h_unit_cost',
   img: 'image_unit_cost',
   img_o: 'image_output_unit_cost',
   ai: 'audio_input_unit_cost',
@@ -330,7 +337,7 @@ function parseTierBody(body: string): Partial<VisualTier> | null {
   for (const part of splitTopLevel(unwrapOuterParens(body), '+')) {
     let match = part.match(
       new RegExp(
-        `^(p|c|cr|cc|cc1h|img|img_o|ai|ao)\\s*\\*\\s*(${NUMBER_PATTERN})$`
+        `^(p|c|cr|cc|cc1h|cc12h|img|img_o|ai|ao)\\s*\\*\\s*(${NUMBER_PATTERN})$`
       )
     )
     if (match) {
@@ -366,9 +373,8 @@ function parseTierBody(body: string): Partial<VisualTier> | null {
     return null
   }
   tier.priceTerms.sort((a, b) => a.field.localeCompare(b.field))
-  tier.cache_mode = isVisualPriceEnabled(tier, 'cache_create_1h_unit_cost')
-    ? CACHE_MODE_TIMED
-    : CACHE_MODE_GENERIC
+  tier.cache_mode = isVisualPriceEnabled(tier, 'cache_create_12h_unit_cost') ? CACHE_MODE_OPENAI
+    : isVisualPriceEnabled(tier, 'cache_create_1h_unit_cost') ? CACHE_MODE_TIMED : CACHE_MODE_GENERIC
   return tier
 }
 
@@ -395,7 +401,7 @@ function parseTierConditions(value: string): TierConditionInput[] | null {
   for (let index = 0; index < parts.length; index += 1) {
     const tokenMatch = unwrapOuterParens(parts[index]).match(
       new RegExp(
-        `^(p|c|len|cr|cc|cc1h|img|img_o|ai|ao)\\s*(<=|>=|<|>)\\s*(${NUMBER_PATTERN})$`
+        `^(p|c|len|cr|cc|cc1h|cc12h|img|img_o|ai|ao)\\s*(<=|>=|<|>)\\s*(${NUMBER_PATTERN})$`
       )
     )
     if (tokenMatch) {
@@ -500,137 +506,3 @@ export function tryParseVisualConfig(
     return null
   }
 }
-
-// ---------------------------------------------------------------------------
-// Local cost evaluator (for the estimator preview)
-// ---------------------------------------------------------------------------
-
-const ESTIMATOR_VARS = [
-  { var: 'cr', stateKey: 'cacheReadTokens' },
-  { var: 'cc', stateKey: 'cacheCreateTokens' },
-  { var: 'cc1h', stateKey: 'cacheCreate1hTokens' },
-  { var: 'img', stateKey: 'imageTokens' },
-  { var: 'img_o', stateKey: 'imageOutputTokens' },
-  { var: 'ai', stateKey: 'audioInputTokens' },
-  { var: 'ao', stateKey: 'audioOutputTokens' },
-] as const
-
-export type ExtraTokenValues = Record<
-  (typeof ESTIMATOR_VARS)[number]['stateKey'],
-  number
->
-
-export type EvalResult = {
-  cost: number
-  matchedTier: string
-  error: string | null
-}
-
-function timeInZone(tz: string): Date {
-  const trimmed = tz.trim()
-  if (!trimmed) return new Date()
-  try {
-    return new Date(new Date().toLocaleString('en-US', { timeZone: trimmed }))
-  } catch {
-    return new Date()
-  }
-}
-
-const SIZE_PIXELS_REGEX = /(\d+(?:\.\d+)?)\s*(?:x|×|\*)\s*(\d+(?:\.\d+)?)/i
-
-function pixelsFromSizeValue(value: unknown): number {
-  if (value == null) return 0
-  if (typeof value === 'number')
-    return Number.isFinite(value) && value > 0 ? value : 0
-  const text = String(value).trim()
-  if (!text) return 0
-  const normalized = text.toLowerCase()
-  if (normalized === '1k') return 1024 * 1024
-  if (normalized === '2k') return 2048 * 2048
-  const numeric = Number(text)
-  if (Number.isFinite(numeric) && numeric > 0) return numeric
-  const match = text.match(SIZE_PIXELS_REGEX)
-  if (!match) return 0
-  const width = Number(match[1])
-  const height = Number(match[2])
-  if (
-    !Number.isFinite(width) ||
-    !Number.isFinite(height) ||
-    width <= 0 ||
-    height <= 0
-  ) {
-    return 0
-  }
-  return width * height
-}
-
-export function evalExprLocally(
-  exprStr: string,
-  promptTokens: number,
-  completionTokens: number,
-  extraTokenValues: ExtraTokenValues
-): EvalResult {
-  try {
-    if (!exprStr || !exprStr.trim()) {
-      return { cost: 0, matchedTier: '', error: null }
-    }
-    const { prefix, body } = splitExprVersion(exprStr.trim())
-    if (prefix && prefix !== 'v1:')
-      throw new Error(`Unsupported expression version: ${prefix}`)
-    let matchedTier = ''
-    const tierFn = (name: string, value: number) => {
-      matchedTier = name
-      return value
-    }
-    const cacheReadTokens = extraTokenValues.cacheReadTokens || 0
-    const cacheCreateTokens = extraTokenValues.cacheCreateTokens || 0
-    const cacheCreate1hTokens = extraTokenValues.cacheCreate1hTokens || 0
-    const len =
-      promptTokens + cacheReadTokens + cacheCreateTokens + cacheCreate1hTokens
-    const env: Record<string, unknown> = {
-      p: promptTokens,
-      c: completionTokens,
-      len,
-      nil: null,
-      tier: tierFn,
-      max: Math.max,
-      min: Math.min,
-      abs: Math.abs,
-      ceil: Math.ceil,
-      floor: Math.floor,
-      header: () => '',
-      param: () => null,
-      response: () => null,
-      pixels: pixelsFromSizeValue,
-      has: (source: unknown, substr: string) => {
-        if (source == null || !substr) return false
-        return String(source).includes(substr)
-      },
-      hour: (tz: string) => timeInZone(tz).getHours(),
-      minute: (tz: string) => timeInZone(tz).getMinutes(),
-      weekday: (tz: string) => timeInZone(tz).getDay(),
-      month: (tz: string) => timeInZone(tz).getMonth() + 1,
-      day: (tz: string) => timeInZone(tz).getDate(),
-    }
-    for (const field of ESTIMATOR_VARS) {
-      env[field.var] = extraTokenValues[field.stateKey] || 0
-    }
-    const fn = new Function(
-      ...Object.keys(env),
-      `"use strict"; return (${body});`
-    )
-    const cost = Number(fn(...Object.values(env))) || 0
-    return { cost, matchedTier, error: null }
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
-    return { cost: 0, matchedTier: '', error: message }
-  }
-}
-
-export function exprUsesExtraVars(exprStr: string): boolean {
-  if (!exprStr) return false
-  const varNames = ESTIMATOR_VARS.map((f) => f.var).join('|')
-  return new RegExp(`\\b(${varNames})\\b`).test(exprStr)
-}
-
-export const ESTIMATOR_EXTRA_FIELDS = ESTIMATOR_VARS

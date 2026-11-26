@@ -117,6 +117,10 @@ var defaultCreateCacheRatio = map[string]float64{
 //var defaultCreateCacheRatio = map[string]float64{}
 
 var cacheRatioMap = types.NewRWMap[string, float64]()
+
+const LegacyCache1hMultiplier = 1.6
+
+var createCache1hRatioMap = types.NewRWMap[string, float64]()
 var createCacheRatioMap = types.NewRWMap[string, float64]()
 
 // GetCacheRatioMap returns a copy of the cache ratio map
@@ -168,3 +172,24 @@ func GetCacheRatioCopy() map[string]float64 {
 func GetCreateCacheRatioCopy() map[string]float64 {
 	return createCacheRatioMap.ReadAll()
 }
+
+func GetCreateCache1hRatio(name string) (float64, bool) {
+	return createCache1hRatioMap.Get(name)
+}
+
+func CreateCache1hRatio2JSONString() string { return createCache1hRatioMap.MarshalJSONString() }
+
+func UpdateCreateCache1hRatioByJSONString(value string) error {
+	rates, err := parseModelRates(value, "CreateCache1hRatio")
+	if err != nil {
+		return err
+	}
+	createCache1hRatioMap.ReplaceAll(rates)
+	InvalidateExposedDataCache()
+	return nil
+}
+func ValidateCreateCache1hRatioJSON(value string) error {
+	_, err := parseModelRates(value, "CreateCache1hRatio")
+	return err
+}
+func GetCreateCache1hRatioCopy() map[string]float64 { return createCache1hRatioMap.ReadAll() }

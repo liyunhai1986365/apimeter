@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Leave empty to use 1.6 times the 5m price.": "空欄の場合、5 分の価格の 1.6 倍を使用します。",
+    "Cache Write (12h)": "キャッシュ書き込み（12 時間）",
+    "Cache Write (30m)": "キャッシュ書き込み（30 分）",
+    "Cache create (12h) price": "キャッシュ書き込み価格（12 時間）",
+    "Upstream usage format": "上流の使用量形式",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

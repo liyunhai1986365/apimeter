@@ -7,6 +7,8 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const OpenAICacheCreation12hMultiplier = 2
+
 type GroupRatioInfo struct {
 	GroupRatio        float64
 	GroupSpecialRatio float64
@@ -38,6 +40,7 @@ type PriceData struct {
 	CacheCreationRatio   float64
 	CacheCreation5mRatio float64
 	CacheCreation1hRatio float64
+	FreeCacheCreation1h  bool `json:",omitempty"`
 	ImageRatio           float64
 	AudioRatio           float64
 	AudioCompletionRatio float64

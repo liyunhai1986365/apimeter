@@ -8,6 +8,8 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	hosttypes "github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,10 +29,11 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 	p := float64(usage.PromptTokens)
 	c := float64(usage.CompletionTokens)
 	cr := float64(usage.PromptTokensDetails.CachedTokens)
-	cc5m := float64(usage.PromptTokensDetails.CacheCreationTokensTotal())
+	cc := float64(usage.PromptTokensDetails.CacheCreationTokensTotal())
 	cc1h := float64(0)
+	cc12h := float64(0)
 
-	if usage.UsageSemantic == "anthropic" {
+	if isClaudeUsageSemantic {
 		// Upstreams may report the cache-write total without a full 5m/1h
 		// split; the unlabelled remainder is billed as 5m writes.
 		split5m, split1h := relayconvert.NormalizeCacheCreationSplit(
@@ -38,7 +41,7 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 			usage.ClaudeCacheCreation5mTokens,
 			usage.ClaudeCacheCreation1hTokens,
 		)
-		cc5m = float64(split5m)
+		cc = float64(split5m)
 		cc1h = float64(split1h)
 	}
 
@@ -50,17 +53,41 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 	// len = total input context length for tier condition evaluation.
 	// Non-Claude: prompt_tokens already includes everything.
 	// Claude: input_tokens is text-only, so add cache read + cache creation.
-	inputLen := p
+	inputLen := float64(usage.PromptTokens)
 	if isClaudeUsageSemantic {
-		inputLen = p + cr + cc5m + cc1h
-	}
-
-	if !isClaudeUsageSemantic {
+		inputLen = p + cr + cc + cc1h
+		// Native input excludes cache. Fold each unpriced category into its
+		// fallback after computing the physical context length.
+		if !usedVars["cr"] {
+			p += cr
+		}
+		if !usedVars["cc1h"] {
+			cc += cc1h * ratio_setting.LegacyCache1hMultiplier
+			cc1h = 0
+		}
+		if !usedVars["cc"] {
+			p += cc
+			cc = 0
+		}
+	} else {
 		if usedVars["cr"] {
 			p -= cr
 		}
+		longWrites := float64(usage.PromptTokensDetails.CacheWrite12hTokens())
+		if usedVars["cc12h"] {
+			cc12h = longWrites
+			p -= longWrites
+			cc -= longWrites
+		}
+		// Prompt usage includes each write once. Apply the 12h premium only
+		// after moving the physical writes to their priced category.
+		premium := (longWrites - cc12h) * (hosttypes.OpenAICacheCreation12hMultiplier - 1)
 		if usedVars["cc"] {
-			p -= cc5m
+			p -= cc
+			cc += premium
+		} else {
+			p += premium
+			cc = 0
 		}
 		if usedVars["cc1h"] {
 			p -= cc1h
@@ -89,16 +116,17 @@ func BuildTieredTokenParams(usage *dto.Usage, isClaudeUsageSemantic bool, usedVa
 	}
 
 	return billingexpr.TokenParams{
-		P:    p,
-		C:    c,
-		Len:  inputLen,
-		CR:   cr,
-		CC:   cc5m,
-		CC1h: cc1h,
-		Img:  img,
-		ImgO: imgO,
-		AI:   ai,
-		AO:   ao,
+		P:     p,
+		C:     c,
+		Len:   inputLen,
+		CR:    cr,
+		CC:    cc,
+		CC1h:  cc1h,
+		CC12h: cc12h,
+		Img:   img,
+		ImgO:  imgO,
+		AI:    ai,
+		AO:    ao,
 	}
 }
 

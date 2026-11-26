@@ -44,6 +44,7 @@ export default function ModelRatioSettings(props) {
     ModelRatio: '',
     CacheRatio: '',
     CreateCacheRatio: '',
+    CreateCache1hRatio: '',
     CompletionRatio: '',
     ImageRatio: '',
     AudioRatio: '',
@@ -204,10 +205,7 @@ export default function ModelRatioSettings(props) {
         <Row gutter={16}>
           <Col xs={24} sm={16}>
             <Form.TextArea
-              label={t('缓存创建倍率')}
-              extraText={t(
-                '默认为 5m 缓存创建倍率；1h 缓存创建倍率按固定乘法自动计算（当前为 1.6x）',
-              )}
+              label={`${t('缓存创建倍率')} (5m)`}
               placeholder={t('为一个 JSON 文本，键为模型名称，值为倍率')}
               field={'CreateCacheRatio'}
               autosize={{ minRows: 6, maxRows: 12 }}
@@ -221,6 +219,27 @@ export default function ModelRatioSettings(props) {
               ]}
               onChange={(value) =>
                 setInputs({ ...inputs, CreateCacheRatio: value })
+              }
+            />
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col xs={24} sm={16}>
+            <Form.TextArea
+              label={`${t('缓存创建倍率')} (1h)`}
+              placeholder={t('为一个 JSON 文本，键为模型名称，值为倍率')}
+              field={'CreateCache1hRatio'}
+              autosize={{ minRows: 6, maxRows: 12 }}
+              trigger='blur'
+              stopValidateWithError
+              rules={[
+                {
+                  validator: (rule, value) => verifyJSON(value),
+                  message: '不是合法的 JSON 字符串',
+                },
+              ]}
+              onChange={(value) =>
+                setInputs({ ...inputs, CreateCache1hRatio: value })
               }
             />
           </Col>

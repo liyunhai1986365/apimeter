@@ -265,14 +265,28 @@ function buildPerTokenLines(
       discount
     )
   } else {
+    // Older logs can carry TTL counts even though both were billed at one rate.
+    const longWrites = other.cache_creation_ratio_12h == null
+      ? 0
+      : Math.min(cache.writeTotal, finitePositive(other.cache_creation_tokens_12h))
     pushLine(
       lines,
       {
         key: 'cache-write',
-        labelKey: 'Cache Write',
-        quantity: cache.writeTotal,
+        labelKey: longWrites > 0 ? 'Cache Write (30m)' : 'Cache Write',
+        quantity: cache.writeTotal - longWrites,
         unitPriceUSD:
           baseInputPrice * finitePositive(other.cache_creation_ratio),
+      },
+      discount
+    )
+    pushLine(
+      lines,
+      {
+        key: 'cache-write-12h',
+        labelKey: 'Cache Write (12h)',
+        quantity: longWrites,
+        unitPriceUSD: baseInputPrice * finitePositive(other.cache_creation_ratio_12h),
       },
       discount
     )
@@ -338,6 +352,7 @@ const DYNAMIC_TOKEN_FIELDS: Record<
   cacheReadPrice: { key: 'cr', labelKey: 'Cache Read' },
   cacheCreatePrice: { key: 'cc', labelKey: 'Cache Write' },
   cacheCreate1hPrice: { key: 'cc1h', labelKey: 'Cache Write (1h)' },
+  cacheCreate12hPrice: { key: 'cc12h', labelKey: 'Cache Write (12h)' },
   imagePrice: { key: 'img', labelKey: 'Image input' },
   imageOutputPrice: { key: 'img_o', labelKey: 'Image Tokens' },
   audioInputPrice: { key: 'ai', labelKey: 'Audio input' },
@@ -373,6 +388,7 @@ function dynamicTokenCount(
       if (usedFields.has('cacheCreatePrice')) {
         input -= cache.write5m || cache.writeGeneric || cache.writeTotal
       }
+      if (usedFields.has('cacheCreate12hPrice') && !usedFields.has('cacheCreatePrice')) input -= finitePositive(other.cache_write_tokens_12h)
       if (usedFields.has('cacheCreate1hPrice')) input -= cache.write1h
       if (usedFields.has('imagePrice')) input -= media.imageInput
       if (usedFields.has('audioInputPrice')) input -= media.audioInput
@@ -391,12 +407,16 @@ function dynamicTokenCount(
     return { quantity: cache.read, labelKey: 'Cache Read' }
   }
   if (field === 'cacheCreatePrice') {
+    if (!isClaude && usedFields.has('cacheCreate12hPrice')) {
+      return { quantity: Math.max(0, cache.writeTotal - finitePositive(other.cache_write_tokens_12h)), labelKey: 'Cache Write (30m)' }
+    }
     const split = cache.write5m > 0 || cache.write1h > 0
     return {
       quantity: split ? cache.write5m || cache.writeGeneric : cache.writeTotal,
       labelKey: split ? 'Cache Write (5m)' : 'Cache Write',
     }
   }
+  if (field === 'cacheCreate12hPrice') return { quantity: finitePositive(other.cache_write_tokens_12h), labelKey: 'Cache Write (12h)' }
   if (field === 'cacheCreate1hPrice') {
     return { quantity: cache.write1h, labelKey: 'Cache Write (1h)' }
   }
@@ -440,6 +460,7 @@ function buildDynamicLines(
     outputPrice: 1,
     cacheCreatePrice: 2,
     cacheCreate1hPrice: 3,
+    cacheCreate12hPrice: 3,
     cacheReadPrice: 4,
     imagePrice: 5,
     imageOutputPrice: 6,

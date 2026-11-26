@@ -46,6 +46,14 @@ describe('quotation spreadsheet data', () => {
     })
   })
 
+  test('quotes an independently configured one-hour write price, including zero', () => {
+    for (const ratio of [3.1, 0]) {
+      const [row] = buildQuotationRows([model({ create_cache_ratio: 1.25, create_cache_1h_ratio: ratio })], { tokenUnit: 'M' })
+      assert.equal(row.cacheWritePrice, '$2.5')
+      assert.equal(row.cacheWrite1hPrice, `$${2 * ratio}`)
+    }
+  })
+
   test('includes the current input-to-output modality flow', () => {
     const [row] = buildQuotationRows([
       model({

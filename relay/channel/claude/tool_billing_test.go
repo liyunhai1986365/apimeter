@@ -74,3 +74,18 @@ func TestCountClaudeStreamBillableToolsSetsWebSearchRequests(t *testing.T) {
 	require.Contains(t, info.ResponsesUsageInfo.BuiltInTools, "stream_fn")
 	assert.Equal(t, 1, info.ResponsesUsageInfo.BuiltInTools["stream_fn"].CallCount)
 }
+
+func TestServerToolCountersAcrossSnapshots(t *testing.T) {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	for _, report := range []*dto.ClaudeServerToolUse{
+		{WebFetchRequests: 2, CodeExecutionRequests: 1},
+		{ToolSearchRequests: 3, CodeExecutionRequests: 2},
+		{ToolSearchRequests: 3, CodeExecutionRequests: 2},
+	} {
+		recordClaudeServerTools(ctx, &dto.ClaudeUsage{ServerToolUse: report})
+	}
+	assert.Equal(t, 2, ctx.GetInt("claude_web_fetch_requests"))
+	assert.Equal(t, 2, ctx.GetInt("claude_code_execution_requests"))
+	assert.Equal(t, 3, ctx.GetInt("claude_tool_search_requests"))
+	assert.Zero(t, ctx.GetInt("claude_web_search_requests"))
+}

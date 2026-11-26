@@ -41,6 +41,7 @@ type ModelFormValues = {
   ModelRatio: string
   CacheRatio: string
   CreateCacheRatio: string
+  CreateCache1hRatio: string
   CompletionRatio: string
   ImageRatio: string
   AudioRatio: string
@@ -131,6 +132,7 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               modelRatio={form.watch('ModelRatio')}
               cacheRatio={form.watch('CacheRatio')}
               createCacheRatio={form.watch('CreateCacheRatio')}
+              createCache1hRatio={form.watch('CreateCache1hRatio')}
               completionRatio={form.watch('CompletionRatio')}
               imageRatio={form.watch('ImageRatio')}
               audioRatio={form.watch('AudioRatio')}
@@ -268,7 +270,26 @@ export const ModelRatioForm = memo(function ModelRatioForm({
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Configured create cache ratios are 5m ratios. 1h cache writes are automatically settled at 1.6x per model.'
+                      'Cache write price (5m)'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='CreateCache1hRatio'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Cache Write (1h)')}</FormLabel>
+                  <FormControl>
+                    <Textarea rows={8} {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Leave empty to use 1.6 times the 5m price.'
                     )}
                   </FormDescription>
                   <FormMessage />

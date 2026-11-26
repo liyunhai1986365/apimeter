@@ -3,6 +3,7 @@ package billingexpr
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -127,6 +128,7 @@ var compileEnvPrototypeV1 = map[string]interface{}{
 	"len":    float64(0),
 	"cr":     float64(0),
 	"cc":     float64(0),
+	"cc12h":  float64(0),
 	"cc1h":   float64(0),
 	"img":    float64(0),
 	"img_o":  float64(0),
@@ -161,6 +163,36 @@ func getCompileEnv(version int) map[string]interface{} {
 	}
 }
 
+// Expr does not promote the branches of a conditional passed to a float64
+// parameter. Convert integer results after their branch has been evaluated.
+type floatArgumentPatcher struct{}
+
+func (floatArgumentPatcher) Visit(node *ast.Node) {
+	call, ok := (*node).(*ast.CallNode)
+	if !ok {
+		return
+	}
+	fn := call.Callee.Type()
+	if fn.Kind() != reflect.Func || fn.NumIn() != len(call.Arguments) {
+		return
+	}
+	for i, arg := range call.Arguments {
+		if branch, ok := arg.(*ast.ConditionalNode); ok && fn.In(i).Kind() == reflect.Float64 {
+			promoteIntegerBranches(branch)
+		}
+	}
+}
+
+func promoteIntegerBranches(cond *ast.ConditionalNode) {
+	for _, branch := range []*ast.Node{&cond.Exp1, &cond.Exp2} {
+		if nested, ok := (*branch).(*ast.ConditionalNode); ok {
+			promoteIntegerBranches(nested)
+		} else if (*branch).Type().Kind() == reflect.Int {
+			ast.Patch(branch, &ast.BuiltinNode{Name: "float", Arguments: []ast.Node{*branch}})
+		}
+	}
+}
+
 // CompileFromCache compiles an expression string, using a cached program when
 // available. The cache is keyed by the SHA-256 hex digest of the expression.
 func CompileFromCache(exprStr string) (*vm.Program, error) {
@@ -191,7 +223,8 @@ func compileEntryFromCacheByHash(exprStr, hash string) (*cachedEntry, error) {
 
 	version, body := ParseExprVersion(exprStr)
 	patcher := &requestRulePatcher{}
-	prog, err := expr.Compile(body, expr.Env(getCompileEnv(version)), expr.Patch(patcher), expr.AsFloat64())
+	env := getCompileEnv(version)
+	prog, err := expr.Compile(body, expr.Env(env), expr.Patch(patcher), expr.Patch(floatArgumentPatcher{}), expr.AsFloat64())
 	if patcher.restrictedIdentifier != "" {
 		return nil, fmt.Errorf("expr compile error: identifier %q is reserved for internal use", patcher.restrictedIdentifier)
 	}
@@ -254,25 +287,17 @@ func UsedVars(exprStr string) map[string]bool {
 	if exprStr == "" {
 		return nil
 	}
-	hash := ExprHashString(exprStr)
-	cacheMu.RLock()
-	if entry, ok := cache[hash]; ok {
-		cacheMu.RUnlock()
-		return entry.usedVars
-	}
-	cacheMu.RUnlock()
+	vars, _ := CompileUsedVars(exprStr)
+	return vars
+}
 
-	// Compile (and cache) to populate usedVars
-	if _, err := compileFromCacheByHash(exprStr, hash); err != nil {
-		return nil
+// CompileUsedVars also returns compiler errors for unsaved expressions.
+func CompileUsedVars(exprStr string) (map[string]bool, error) {
+	entry, err := compileEntryFromCacheByHash(exprStr, ExprHashString(exprStr))
+	if err != nil {
+		return nil, err
 	}
-	cacheMu.RLock()
-	entry, ok := cache[hash]
-	cacheMu.RUnlock()
-	if ok {
-		return entry.usedVars
-	}
-	return nil
+	return entry.usedVars, nil
 }
 
 // UsesTokenVariables reports whether evaluation needs any upstream token count.

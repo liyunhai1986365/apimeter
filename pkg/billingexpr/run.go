@@ -62,6 +62,7 @@ func runProgram(prog *vm.Program, requestRules []RequestRuleTrace, params TokenP
 		"len":   params.Len,
 		"cr":    params.CR,
 		"cc":    params.CC,
+		"cc12h": params.CC12h,
 		"cc1h":  params.CC1h,
 		"img":   params.Img,
 		"img_o": params.ImgO,

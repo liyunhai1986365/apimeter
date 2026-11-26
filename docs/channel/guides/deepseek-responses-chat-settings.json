@@ -1,0 +1,22 @@
+{
+  "advanced_custom": {
+    "advanced_routes": [
+      {
+        "incoming_path": "/v1/responses",
+        "models": ["deepseek-v4.1-flash"],
+        "upstream_path": "/v1/chat/completions",
+        "converter": "openai_responses_to_openai_chat_completions"
+      },
+      {
+        "incoming_path": "/v1/chat/completions",
+        "upstream_path": "/v1/chat/completions",
+        "converter": "none"
+      },
+      {
+        "incoming_path": "/v1/messages",
+        "upstream_path": "/v1/messages",
+        "converter": "none"
+      }
+    ]
+  }
+}

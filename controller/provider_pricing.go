@@ -27,7 +27,6 @@ const (
 	hvoyProviderPricingTokenUnit     = "per_1m_tokens"
 	hvoyProviderPricingCallUnit      = "per_call"
 	hvoySignatureMaxAgeSeconds       = int64(60)
-	claudeCacheCreation1hMultiplier  = 6.0 / 3.75
 )
 
 type hvoyProviderPricingResponse struct {
@@ -211,8 +210,11 @@ func buildHvoyProviderPricingResponse(
 			if item.CreateCacheRatio != nil {
 				entry.CacheCreatePrice = validHvoyPricePointer(inputPrice * *item.CreateCacheRatio)
 				if isClaudeModelName(item.ModelName) {
-					entry.CacheCreatePrice1h = validHvoyPricePointer(inputPrice * *item.CreateCacheRatio * claudeCacheCreation1hMultiplier)
+					entry.CacheCreatePrice1h = validHvoyPricePointer(inputPrice * *item.CreateCacheRatio * ratio_setting.LegacyCache1hMultiplier)
 				}
+			}
+			if item.CreateCache1hRatio != nil {
+				entry.CacheCreatePrice1h = validHvoyPricePointer(inputPrice * *item.CreateCache1hRatio)
 			}
 			models = append(models, entry)
 		}

@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Leave empty to use 1.6 times the 5m price.": "留空时，1 小时价格沿用 5 分钟价格的 1.6 倍。",
+    "Cache Write (12h)": "缓存写入（12 小时）",
+    "Cache Write (30m)": "缓存写入（30 分钟）",
+    "Cache create (12h) price": "12 小时缓存写入价格",
+    "Upstream usage format": "上游用量格式",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

@@ -19,6 +19,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	hosttypes "github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 )
@@ -45,6 +46,7 @@ type textQuotaSummary struct {
 	CacheCreationTokens    int
 	CacheCreationTokens5m  int
 	CacheCreationTokens1h  int
+	CacheCreationTokens12h int
 	ImageTokens            int
 	AudioTokens            int
 	ModelName              string
@@ -59,6 +61,7 @@ type textQuotaSummary struct {
 	CacheCreationRatio     float64
 	CacheCreationRatio5m   float64
 	CacheCreationRatio1h   float64
+	CacheCreationRatio12h  float64
 	Quota                  int
 	IsClaudeUsageSemantic  bool
 	UsageSemantic          string
@@ -180,12 +183,12 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 		items = collectToolSurchargeItem(items, dto.BuildInToolWebSearchPreview, 1, summary.ModelName)
 	}
 
-	items = collectToolSurchargeItem(
-		items,
-		dto.BuildInToolWebSearch,
-		ctx.GetInt("claude_web_search_requests"),
-		summary.ModelName,
-	)
+	for _, name := range []string{dto.BuildInToolWebSearch, "web_fetch", "code_execution", "tool_search"} {
+		count := ctx.GetInt("claude_" + name + "_requests")
+		if count > 0 {
+			items = append(items, ToolSurchargeItem{Name: name, Count: count, Price: operation_setting.GetToolPriceForModel(name, summary.ModelName)})
+		}
+	}
 
 	summary.ToolSurchargeItems = mergeToolSurchargeItems(items)
 	var surcharge decimal.Decimal
@@ -333,6 +336,10 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	summary.ImageTokens = usage.PromptTokensDetails.ImageTokens
 	summary.AudioTokens = usage.PromptTokensDetails.AudioTokens
 	legacyClaudeDerived := isLegacyClaudeDerivedOpenAIUsage(relayInfo, usage)
+	if !summary.IsClaudeUsageSemantic && !legacyClaudeDerived {
+		summary.CacheCreationTokens12h = usage.PromptTokensDetails.CacheWrite12hTokens()
+		summary.CacheCreationRatio12h = summary.CacheCreationRatio * hosttypes.OpenAICacheCreation12hMultiplier
+	}
 	isOpenRouterClaudeBilling := relayInfo.ChannelMeta != nil &&
 		relayInfo.ChannelType == constant.ChannelTypeOpenRouter &&
 		summary.IsClaudeUsageSemantic
@@ -369,6 +376,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 	ratio := dModelRatio.Mul(dGroupRatio)
 	summary.ToolCallSurchargeQuota = calculateTextToolCallSurcharge(ctx, relayInfo, &summary)
 
+	var freeLongWrite bool
 	var audioInputQuota decimal.Decimal
 	if !relayInfo.PriceData.UsePrice {
 		baseTokens := dPromptTokens
@@ -386,7 +394,9 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		if !dCachedCreationTokens.IsZero() || hasSplitCacheCreationTokens {
 			if !summary.IsClaudeUsageSemantic && !legacyClaudeDerived {
 				baseTokens = baseTokens.Sub(dCachedCreationTokens)
-				cachedCreationTokensWithRatio = dCachedCreationTokens.Mul(dCacheCreationRatio)
+				longWrites := decimal.NewFromInt(int64(summary.CacheCreationTokens12h))
+				cachedCreationTokensWithRatio = dCachedCreationTokens.Sub(longWrites).Mul(dCacheCreationRatio).
+					Add(longWrites.Mul(decimal.NewFromFloat(summary.CacheCreationRatio12h)))
 			} else {
 				remaining := summary.CacheCreationTokens - summary.CacheCreationTokens5m - summary.CacheCreationTokens1h
 				if remaining < 0 {
@@ -428,7 +438,8 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		quotaCalculateDecimal = relayInfo.PriceData.ApplyOtherRatiosToDecimal(quotaCalculateDecimal)
 		quotaCalculateDecimal = quotaCalculateDecimal.Add(summary.ToolCallSurchargeQuota)
 
-		if !ratio.IsZero() && quotaCalculateDecimal.LessThanOrEqual(decimal.Zero) {
+		freeLongWrite = relayInfo.PriceData.FreeCacheCreation1h && summary.CacheCreationTokens1h > 0 && quotaCalculateDecimal.IsZero()
+		if !freeLongWrite && !ratio.IsZero() && quotaCalculateDecimal.LessThanOrEqual(decimal.Zero) {
 			quotaCalculateDecimal = decimal.NewFromInt(1)
 		}
 		quota, clamp := common.QuotaFromDecimalChecked(quotaCalculateDecimal)
@@ -449,7 +460,7 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 
 	if !summary.hasBillableUsage() {
 		summary.Quota = 0
-	} else if !ratio.IsZero() && summary.Quota == 0 {
+	} else if !freeLongWrite && !ratio.IsZero() && summary.Quota == 0 {
 		summary.Quota = 1
 	}
 
@@ -589,6 +600,14 @@ func postTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	if summary.CacheCreationTokens1h > 0 {
 		other["cache_creation_tokens_1h"] = summary.CacheCreationTokens1h
 		other["cache_creation_ratio_1h"] = summary.CacheCreationRatio1h
+	}
+	if billingUsage != nil && billingUsage.PromptTokensDetails.CacheWriteTokensDetails != nil {
+		other["cache_write_tokens_12h"] = billingUsage.PromptTokensDetails.CacheWrite12hTokens()
+		other["cache_write_tokens_30m"] = billingUsage.PromptTokensDetails.CacheCreationTokensTotal() - billingUsage.PromptTokensDetails.CacheWrite12hTokens()
+	}
+	if summary.CacheCreationTokens12h > 0 {
+		other["cache_creation_tokens_12h"] = summary.CacheCreationTokens12h
+		other["cache_creation_ratio_12h"] = summary.CacheCreationRatio12h
 	}
 	cacheWriteTokens := cacheWriteTokensTotal(summary)
 	if cacheWriteTokens > 0 {

@@ -2,7 +2,10 @@ package billing_setting
 
 import (
 	"fmt"
+	"math"
+	"sync"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/samber/lo"
@@ -27,6 +30,14 @@ var billingSetting = BillingSetting{
 	BillingExpr: make(map[string]string),
 }
 
+var billingMu sync.RWMutex
+
+func UpdateBillingField(key, value string) {
+	billingMu.Lock()
+	defer billingMu.Unlock()
+	config.UpdateConfigFromMap(&billingSetting, map[string]string{key: value})
+}
+
 func init() {
 	config.GlobalConfig.Register("billing_setting", &billingSetting)
 }
@@ -36,6 +47,8 @@ func init() {
 // ---------------------------------------------------------------------------
 
 func GetBillingMode(model string) string {
+	billingMu.RLock()
+	defer billingMu.RUnlock()
 	if mode, ok := billingSetting.BillingMode[model]; ok {
 		return mode
 	}
@@ -43,15 +56,21 @@ func GetBillingMode(model string) string {
 }
 
 func GetBillingExpr(model string) (string, bool) {
+	billingMu.RLock()
+	defer billingMu.RUnlock()
 	expr, ok := billingSetting.BillingExpr[model]
 	return expr, ok
 }
 
 func GetBillingModeCopy() map[string]string {
+	billingMu.RLock()
+	defer billingMu.RUnlock()
 	return lo.Assign(billingSetting.BillingMode)
 }
 
 func GetBillingExprCopy() map[string]string {
+	billingMu.RLock()
+	defer billingMu.RUnlock()
 	return lo.Assign(billingSetting.BillingExpr)
 }
 
@@ -72,6 +91,22 @@ func GetPricingSyncData(base map[string]any) map[string]any {
 
 func SmokeTestExpr(exprStr string) error {
 	return smokeTestExpr(exprStr)
+}
+
+func ValidateBillingExpressionsJSON(raw string) error {
+	var expressions map[string]string
+	if err := common.UnmarshalJsonStr(raw, &expressions); err != nil {
+		return fmt.Errorf("billing expressions: %w", err)
+	}
+	if expressions == nil {
+		return fmt.Errorf("billing expressions must be a JSON object")
+	}
+	for model, expression := range expressions {
+		if err := SmokeTestExpr(expression); err != nil {
+			return fmt.Errorf("invalid billing expression for model %q: %w", model, err)
+		}
+	}
+	return nil
 }
 
 func smokeTestExpr(exprStr string) error {
@@ -97,8 +132,8 @@ func smokeTestExpr(exprStr string) error {
 			if err != nil {
 				return fmt.Errorf("vector {p=%g, c=%g}: run failed: %w", v.P, v.C, err)
 			}
-			if result < 0 {
-				return fmt.Errorf("vector {p=%g, c=%g}: result %f < 0", v.P, v.C, result)
+			if result < 0 || math.IsNaN(result) || math.IsInf(result, 0) {
+				return fmt.Errorf("vector {p=%g, c=%g}: expected a finite, non-negative result, got %g", v.P, v.C, result)
 			}
 		}
 	}

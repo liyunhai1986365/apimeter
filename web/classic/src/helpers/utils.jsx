@@ -671,12 +671,17 @@ export const calculateModelPrice = ({
     const formatRatio = (value) =>
       hasRatioValue(value) ? Number(Number(value).toFixed(6)) : null;
 
+    const cache1hRatio = record.create_cache_1h_ratio ?? (
+      hasRatioValue(record.create_cache_ratio) && /claude/i.test(record.model_name)
+        ? Number(record.create_cache_ratio) * 1.6 : null
+    );
     if (isTokensDisplay) {
       return {
         inputRatio: formatRatio(record.model_ratio),
         completionRatio: formatRatio(record.completion_ratio),
         cacheRatio: formatRatio(record.cache_ratio),
         createCacheRatio: formatRatio(record.create_cache_ratio),
+        createCache1hRatio: formatRatio(cache1hRatio),
         imageRatio: formatRatio(record.image_ratio),
         audioInputRatio: formatRatio(record.audio_ratio),
         audioOutputRatio: formatRatio(record.audio_completion_ratio),
@@ -724,6 +729,7 @@ export const calculateModelPrice = ({
       cachePrice: hasRatioValue(record.cache_ratio)
         ? formatTokenPrice(inputRatioPriceUSD * Number(record.cache_ratio))
         : null,
+      createCache1hPrice: hasRatioValue(cache1hRatio) ? formatTokenPrice(inputRatioPriceUSD * Number(cache1hRatio)) : null,
       createCachePrice: hasRatioValue(record.create_cache_ratio)
         ? formatTokenPrice(inputRatioPriceUSD * Number(record.create_cache_ratio))
         : null,
@@ -863,6 +869,12 @@ export const getModelPriceItems = (
         key: 'create-cache',
         label: t('缓存创建价格'),
         value: priceData.createCachePrice,
+        suffix: unitSuffix,
+      },
+      {
+        key: 'create-cache-1h',
+        label: `${t('缓存创建价格')} (1h)`,
+        value: priceData.createCache1hPrice,
         suffix: unitSuffix,
       },
       {

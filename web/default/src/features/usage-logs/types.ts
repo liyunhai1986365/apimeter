@@ -24,7 +24,7 @@ import type { UsageLog } from './data/schema'
 /** Actual expression inputs recorded at settlement; absent from older logs. */
 export type BillingTokenParams = Partial<
   Record<
-    'p' | 'c' | 'len' | 'cr' | 'cc' | 'cc1h' | 'img' | 'img_o' | 'ai' | 'ao',
+    'p' | 'c' | 'len' | 'cr' | 'cc' | 'cc1h' | 'cc12h' | 'img' | 'img_o' | 'ai' | 'ao',
     number
   >
 >
@@ -170,6 +170,7 @@ export interface LogOtherData {
   cache_creation_tokens?: number
   cache_creation_tokens_5m?: number
   cache_creation_tokens_1h?: number
+  cache_creation_tokens_12h?: number
   cache_write_tokens?: number
   input_tokens_total?: number
   usage_semantic?: string
@@ -188,6 +189,7 @@ export interface LogOtherData {
   cache_creation_ratio?: number
   cache_creation_ratio_5m?: number
   cache_creation_ratio_1h?: number
+  cache_creation_ratio_12h?: number
   is_model_mapped?: boolean
   upstream_model_name?: string
   audio_ratio?: number
@@ -199,6 +201,8 @@ export interface LogOtherData {
   billing_mode?: string
   expr_b64?: string
   matched_tier?: string
+  cache_write_tokens_12h?: number
+  cache_write_tokens_30m?: number
   tiered_token_params?: BillingTokenParams
   reasoning_effort?: string
   image?: boolean

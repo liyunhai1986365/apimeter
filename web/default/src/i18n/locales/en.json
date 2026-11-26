@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Leave empty to use 1.6 times the 5m price.": "Leave empty to use 1.6 times the 5m price.",
+    "Cache Write (12h)": "Cache Write (12h)",
+    "Cache Write (30m)": "Cache Write (30m)",
+    "Cache create (12h) price": "Cache create (12h) price",
+    "Upstream usage format": "Upstream usage format",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

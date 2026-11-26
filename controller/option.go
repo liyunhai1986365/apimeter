@@ -28,6 +28,7 @@ var completionRatioMetaOptionKeys = []string{
 	"CompletionRatio",
 	"CacheRatio",
 	"CreateCacheRatio",
+	"CreateCache1hRatio",
 	"ImageRatio",
 	"AudioRatio",
 	"AudioCompletionRatio",
@@ -353,6 +354,15 @@ func UpdateOption(c *gin.Context) {
 		}
 	case "CreateCacheRatio":
 		err = ratio_setting.UpdateCreateCacheRatioByJSONString(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "缓存创建倍率设置失败: " + err.Error(),
+			})
+			return
+		}
+	case "CreateCache1hRatio":
+		err = ratio_setting.UpdateCreateCache1hRatioByJSONString(option.Value.(string))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,

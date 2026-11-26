@@ -74,6 +74,7 @@ const ORIGINAL_GROUP_KEY = '__original__'
 const MODEL_CARD_HIDDEN_DYNAMIC_FIELDS = new Set([
   'cacheCreatePrice',
   'cacheCreate1hPrice',
+  'cacheCreate12hPrice',
 ])
 
 function getEnabledGroups(model: PricingModel): string[] {
@@ -383,7 +384,7 @@ function buildTokenDisplay(
       unitLabel,
     })
   }
-  if (options.includeCacheWritePrices && model.create_cache_ratio != null) {
+  if (options.includeCacheWritePrices && (model.create_cache_ratio != null || model.create_cache_1h_ratio != null)) {
     entries.push(
       {
         key: 'create_cache',

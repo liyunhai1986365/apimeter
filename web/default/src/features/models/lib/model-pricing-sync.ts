@@ -3,6 +3,7 @@ export type ModelPricingFormValues = {
   ratio?: string
   cacheRatio?: string
   createCacheRatio?: string
+  createCache1hRatio?: string
   completionRatio?: string
   imageRatio?: string
   audioRatio?: string
@@ -17,6 +18,7 @@ export type ModelPricingMaps = {
   ratioMap: Record<string, number>
   cacheMap: Record<string, number>
   createCacheMap: Record<string, number>
+  createCache1hMap: Record<string, number>
   completionMap: Record<string, number>
   imageMap: Record<string, number>
   audioMap: Record<string, number>
@@ -43,6 +45,7 @@ function cloneMaps(maps: ModelPricingMaps): ModelPricingMaps {
     ratioMap: { ...maps.ratioMap },
     cacheMap: { ...maps.cacheMap },
     createCacheMap: { ...maps.createCacheMap },
+    createCache1hMap: { ...maps.createCache1hMap },
     completionMap: { ...maps.completionMap },
     imageMap: { ...maps.imageMap },
     audioMap: { ...maps.audioMap },
@@ -105,6 +108,7 @@ export function normalizeModelPricingValuesForInputMode(
     ...values,
     cacheRatio: divideByBasePrice(values.cacheRatio, inputPrice),
     createCacheRatio: divideByBasePrice(values.createCacheRatio, inputPrice),
+    createCache1hRatio: divideByBasePrice(values.createCache1hRatio, inputPrice),
     imageRatio: divideByBasePrice(values.imageRatio, inputPrice),
     audioRatio: audioRatioValue,
     audioCompletionRatio: divideByBasePrice(
@@ -129,6 +133,7 @@ export function convertRatioValuesToPriceValues(
     ...values,
     cacheRatio: multiplyByBasePrice(values.cacheRatio, inputPrice),
     createCacheRatio: multiplyByBasePrice(values.createCacheRatio, inputPrice),
+    createCache1hRatio: multiplyByBasePrice(values.createCache1hRatio, inputPrice),
     imageRatio: multiplyByBasePrice(values.imageRatio, inputPrice),
     audioRatio: formatOptionalNumber(audioInputPrice),
     audioCompletionRatio: multiplyByBasePrice(
@@ -154,6 +159,7 @@ function hasExplicitPricingInput(
     values.ratio,
     values.cacheRatio,
     values.createCacheRatio,
+    values.createCache1hRatio,
     values.completionRatio,
     values.imageRatio,
     values.audioRatio,
@@ -182,6 +188,7 @@ function deletePricingEntries(
   delete maps.ratioMap[modelName]
   delete maps.cacheMap[modelName]
   delete maps.createCacheMap[modelName]
+  delete maps.createCache1hMap[modelName]
   delete maps.completionMap[modelName]
   delete maps.imageMap[modelName]
   delete maps.audioMap[modelName]
@@ -201,6 +208,7 @@ function migrateModelPricing(
   movePricingEntry(maps.ratioMap, oldModelName, finalModelName)
   movePricingEntry(maps.cacheMap, oldModelName, finalModelName)
   movePricingEntry(maps.createCacheMap, oldModelName, finalModelName)
+  movePricingEntry(maps.createCache1hMap, oldModelName, finalModelName)
   movePricingEntry(maps.completionMap, oldModelName, finalModelName)
   movePricingEntry(maps.imageMap, oldModelName, finalModelName)
   movePricingEntry(maps.audioMap, oldModelName, finalModelName)
@@ -276,6 +284,10 @@ export function syncModelPricingMaps(
   const createCacheRatio = parseOptionalNumber(values.createCacheRatio)
   if (createCacheRatio !== undefined) {
     maps.createCacheMap[finalModelName] = createCacheRatio
+  }
+  const createCache1hRatio = parseOptionalNumber(values.createCache1hRatio)
+  if (createCache1hRatio !== undefined) {
+    maps.createCache1hMap[finalModelName] = createCache1hRatio
   }
 
   const completionRatio = parseOptionalNumber(values.completionRatio)

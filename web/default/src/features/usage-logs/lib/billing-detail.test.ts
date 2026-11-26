@@ -313,6 +313,20 @@ describe('buildBillingDetail', () => {
     assert.notEqual(result.lines.at(-1)?.key, 'other')
   })
 
+  test('uses the 12h write rate recorded at settlement and preserves older bills', () => {
+    const log = makeLog({ prompt_tokens: 12000, cache_read_tokens: 4000, cache_write_tokens: 7000 })
+    const rates = { model_ratio: 5, cache_ratio: 0.1, cache_creation_ratio: 1.25, cache_write_tokens_12h: 4000 }
+    const current = buildBillingDetail(log, {
+      ...rates, cache_creation_tokens_12h: 4000, cache_creation_ratio_12h: 2.5,
+    }, 0.1515)
+    assert.deepEqual(current.lines.map((line) => [line.labelKey, line.quantity, line.unitPriceUSD]), [
+      ['Input', 1000, 10], ['Cache Write (30m)', 3000, 12.5],
+      ['Cache Write (12h)', 4000, 25], ['Cache Read', 4000, 1],
+    ])
+    const old = buildBillingDetail(log, rates, 0.1015)
+    assert.deepEqual(old.lines.map((line) => line.labelKey), ['Input', 'Cache Write', 'Cache Read'])
+  })
+
   test('supports fixed per-request pricing', () => {
     const log = makeLog()
     const other: LogOtherData = {

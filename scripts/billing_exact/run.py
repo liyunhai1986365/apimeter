@@ -18,7 +18,7 @@ from pathlib import Path
 import requests
 
 from local_services import local_services
-from scenarios import CHAT_MODELS, IMAGE_MODELS, VIDEO_MODEL, ExactBillingCases
+from scenarios import CHAT_MODELS, EXACT_CASE_COUNT, IMAGE_MODELS, VIDEO_MODEL, ExactBillingCases
 from upstream import Server
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -250,8 +250,8 @@ def main():
             (out / "checks.json").write_text(json.dumps(suite.checks, indent=2))
     passed = sum(r["passed"] for r in suite.exact_results)
     failed = sum(not c["passed"] for c in suite.checks)
-    print(f"Exact accounting: {passed}/83; failed checks: {failed}")
-    return int(passed != 83 or failed != 0)
+    print(f"Exact accounting: {passed}/{EXACT_CASE_COUNT}; failed checks: {failed}")
+    return int(passed != EXACT_CASE_COUNT or failed != 0)
 
 
 if __name__ == "__main__":

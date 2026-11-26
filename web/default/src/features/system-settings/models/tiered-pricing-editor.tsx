@@ -27,10 +27,13 @@ import {
   type InputHTMLAttributes,
   type MouseEvent as ReactMouseEvent,
 } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Copy, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useDebounce } from '@/hooks/use-debounce'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -53,6 +56,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import {
   BILLING_EXTRA_VARS,
   COMMON_TIMEZONES,
@@ -89,16 +93,14 @@ import {
 } from '@/features/pricing/lib/pricing-editor-state'
 import {
   CACHE_MODE_GENERIC,
+  CACHE_MODE_OPENAI,
   CACHE_MODE_TIMED,
   type CacheMode,
-  type ExtraTokenValues,
   type TokenTierCondition,
   type TierConditionInput,
   type VisualConfig,
   type VisualTier,
   createEmptyTokenCondition,
-  evalExprLocally,
-  exprUsesExtraVars,
   getTierCacheMode,
   isVisualPriceEnabled,
   normalizeVisualConfig,
@@ -120,6 +122,9 @@ const TASK_PRICE_VARS = BILLING_EXTRA_VARS.filter(
 )
 const ESTIMATOR_TOKEN_PRICE_VARS = BILLING_EXTRA_VARS.filter(
   (variable) => !variable.unit || variable.unit === 'tokens'
+)
+const extraTokenPattern = new RegExp(
+  `\\b(${ESTIMATOR_TOKEN_PRICE_VARS.map((v) => v.key).join('|')})\\b`
 )
 
 const CONDITION_INPUT_OPTIONS: {
@@ -575,7 +580,7 @@ function VisualTierCard({
     return (
       <PriceField
         key={variable.key}
-        label={t(variable.label)}
+        label={t(variable.key === 'cc' && cacheMode === CACHE_MODE_OPENAI ? 'Cache Write (30m)' : variable.label)}
         value={value}
         enabled={isVisualPriceEnabled(tier, fieldKey)}
         onEnabledChange={(enabled) =>
@@ -689,6 +694,9 @@ function VisualTierCard({
                   >
                     {t('Generic cache')}
                   </TabsTrigger>
+                  <TabsTrigger value={CACHE_MODE_OPENAI} className='px-2 text-xs'>
+                    OpenAI (30m / 12h)
+                  </TabsTrigger>
                   <TabsTrigger
                     value={CACHE_MODE_TIMED}
                     className='px-2 text-xs'
@@ -700,6 +708,7 @@ function VisualTierCard({
             </div>
             <div className='flex flex-wrap gap-x-4 gap-y-2'>
               {CACHE_PRICE_VARS.map((variable) => {
+                if (variable.key === 'cc12h' && cacheMode !== CACHE_MODE_OPENAI) return null
                 if (variable.key === 'cc1h' && cacheMode !== CACHE_MODE_TIMED) {
                   return null
                 }
@@ -891,7 +900,7 @@ function RawExprEditor({ exprString, onChange }: RawExprEditorProps) {
         <AlertDescription className='space-y-1 text-xs'>
           <div>
             {t('Variables')}: <code>len</code>, <code>p</code>, <code>c</code>,{' '}
-            <code>cr</code>, <code>cc</code>, <code>cc1h</code>,{' '}
+            <code>cr</code>, <code>cc</code>, <code>cc1h</code>, <code>cc12h</code>,{' '}
             <code>img</code>, <code>img_o</code>, <code>ai</code>,{' '}
             <code>ao</code>
           </div>
@@ -1494,28 +1503,50 @@ type EstimatorProps = {
 
 function CostEstimator({ effectiveExpr }: EstimatorProps) {
   const { t } = useTranslation()
+  const [format, setFormat] = useState<'openai' | 'anthropic'>('openai')
   const [promptTokens, setPromptTokens] = useState(0)
   const [completionTokens, setCompletionTokens] = useState(0)
-  const [extras, setExtras] = useState<ExtraTokenValues>({
-    cacheReadTokens: 0,
-    cacheCreateTokens: 0,
-    cacheCreate1hTokens: 0,
-    imageTokens: 0,
-    imageOutputTokens: 0,
-    audioInputTokens: 0,
-    audioOutputTokens: 0,
+  const [extras, setExtras] = useState<Record<string, number>>({})
+  const usesExtras =
+    extraTokenPattern.test(effectiveExpr) ||
+    (format === 'anthropic' && /\blen\b/.test(effectiveExpr))
+  const sample = useMemo(
+    () => ({
+      expression: effectiveExpr.trim(),
+      format,
+      p: promptTokens,
+      c: completionTokens,
+      ...extras,
+      cc1h: format === 'anthropic' ? extras.cc1h : undefined,
+      cc12h: format === 'openai' ? extras.cc12h : undefined,
+    }),
+    [effectiveExpr, format, promptTokens, completionTokens, extras]
+  )
+  const debounced = useDebounce(sample, 300)
+  const ready = !!sample.expression && debounced === sample
+  const preview = useQuery({
+    queryKey: ['billing-preview', debounced],
+    enabled: ready,
+    retry: false,
+    gcTime: 0,
+    staleTime: 0,
+    queryFn: async ({ signal }) => {
+      const options = {
+        signal,
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      }
+      const { data } = await api.post<{
+        success: boolean
+        message: string
+        data: { quota: number; tier: string }
+      }>('/api/option/billing-preview', debounced, options)
+      if (!data.success) throw new Error(data.message || t('Request failed'))
+      return data.data
+    },
   })
-
-  const usesExtras = useMemo(
-    () => exprUsesExtraVars(effectiveExpr),
-    [effectiveExpr]
-  )
-
-  const result = useMemo(
-    () =>
-      evalExprLocally(effectiveExpr, promptTokens, completionTokens, extras),
-    [effectiveExpr, promptTokens, completionTokens, extras]
-  )
+  const result = ready && !preview.isFetching ? preview.data : undefined
+  const error = ready ? preview.error : null
 
   return (
     <div className='bg-muted/30 space-y-3 rounded-md border p-3'>
@@ -1527,6 +1558,21 @@ function CostEstimator({ effectiveExpr }: EstimatorProps) {
           )}
         </p>
       </div>
+      <Field>
+        <FieldLabel>{t('Upstream usage format')}</FieldLabel>
+        <ToggleGroup
+          aria-label={t('Upstream usage format')}
+          variant='outline'
+          size='sm'
+          value={[format]}
+          onValueChange={([value]) => {
+            if (value === 'openai' || value === 'anthropic') setFormat(value)
+          }}
+        >
+          <ToggleGroupItem value='openai'>OpenAI</ToggleGroupItem>
+          <ToggleGroupItem value='anthropic'>Claude</ToggleGroupItem>
+        </ToggleGroup>
+      </Field>
       <div className='grid grid-cols-2 gap-3'>
         <div className='space-y-1'>
           <Label className='text-xs'>{t('Input tokens')}</Label>
@@ -1548,24 +1594,18 @@ function CostEstimator({ effectiveExpr }: EstimatorProps) {
       {usesExtras && (
         <div className='grid grid-cols-2 gap-3'>
           {ESTIMATOR_TOKEN_PRICE_VARS.map((variable) => {
-            // BILLING_EXTRA_VARS only contains pricing variables; they are
-            // guaranteed to have a non-null `field` (the `len` condition-only
-            // variable is filtered out). Narrow the type here for safety.
-            if (!variable.field) return null
-            const stateKey = variable.field.replace(
-              'Price',
-              'Tokens'
-            ) as keyof ExtraTokenValues
+            if (variable.key === 'cc12h' && format !== 'openai') return null
+            if (variable.key === 'cc1h' && format !== 'anthropic') return null
             return (
               <div key={variable.key} className='space-y-1'>
-                <Label className='text-xs'>{t(variable.shortLabel)}</Label>
+                <Label className='text-xs'>{t(variable.key === 'cc' && format === 'openai' ? 'Cache Write (30m)' : variable.shortLabel)}</Label>
                 <DraftNumberInput
                   min={0}
-                  value={extras[stateKey]}
+                  value={extras[variable.key] ?? 0}
                   onValueChange={(value) =>
                     setExtras((prev) => ({
                       ...prev,
-                      [stateKey]: value,
+                      [variable.key]: value,
                     }))
                   }
                 />
@@ -1577,29 +1617,30 @@ function CostEstimator({ effectiveExpr }: EstimatorProps) {
       <div
         className={cn(
           'rounded-md border p-3 text-sm',
-          result.error
+          error
             ? 'border-destructive/50 bg-destructive/10 text-destructive'
             : 'border-primary/50 bg-primary/10'
         )}
       >
-        {result.error ? (
+        {error ? (
           <span>
-            {t('Expression error')}: {result.error}
+            {t('Expression error')}: {error.message}
           </span>
-        ) : (
+        ) : result ? (
           <div className='flex items-center gap-2'>
             <span className='font-medium'>
-              {t('Estimated quota cost')}:{' '}
-              {result.cost.toLocaleString(undefined, {
-                maximumFractionDigits: 4,
-              })}
+              {t('Estimated quota cost')}: {result.quota.toLocaleString()}
             </span>
-            {result.matchedTier && (
+            {result.tier && (
               <Badge variant='outline' className='text-xs'>
-                {t('Hit tier')}: {result.matchedTier}
+                {t('Hit tier')}: {result.tier}
               </Badge>
             )}
           </div>
+        ) : sample.expression ? (
+          t('Loading...')
+        ) : (
+          '—'
         )}
       </div>
     </div>
@@ -1623,6 +1664,7 @@ Input side:
 - len — total input context length (for condition checks). Not affected by auto-exclusion; always reflects the full input length. Use in tier conditions
 - cr — cache-hit (read) token count
 - cc — cache-create token count (5-min TTL)
+- cc12h — 12-hour OpenAI cache writes. When used, cc counts remaining writes.
 - cc1h — cache-create token count (1-hour TTL, Claude-specific)
 - img — image input token count
 - ai — audio input token count

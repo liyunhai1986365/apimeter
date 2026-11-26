@@ -885,7 +885,7 @@ function RawExprEditor({ exprString, onChange, t }) {
               {t('输出 Token')}), <code>len</code> ({t('输入长度')}),{' '}
               <code>cr</code> ({t('缓存读取')}),{' '}
               <code>cc</code> ({t('缓存创建')}),{' '}
-              <code>cc1h</code> ({t('缓存创建-1小时')})
+              <code>cc12h</code> (OpenAI 12h), <code>cc1h</code> ({t('缓存创建-1小时')})
             </div>
             <div>
               {t('函数')}: <code>tier(name, value)</code>,{' '}
@@ -974,7 +974,7 @@ function evalExprLocally(exprStr, p, c, extraTokenValues) {
     const cacheReadTokens = extraTokenValues.cacheReadTokens || 0;
     const cacheCreateTokens = extraTokenValues.cacheCreateTokens || 0;
     const cacheCreate1hTokens = extraTokenValues.cacheCreate1hTokens || 0;
-    const len = p + cacheReadTokens + cacheCreateTokens + cacheCreate1hTokens;
+    const len = p + cacheReadTokens + cacheCreateTokens + cacheCreate1hTokens + (extraTokenValues.cacheCreate12hTokens || 0);
     const env = { p, c, len, tier: tierFn, max: Math.max, min: Math.min, abs: Math.abs, ceil: Math.ceil, floor: Math.floor };
     for (const field of EXTRA_ESTIMATOR_FIELDS) {
       env[field.var] = extraTokenValues[field.stateKey] || 0;
@@ -1381,6 +1381,7 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
   const [completionTokens, setCompletionTokens] = useState(10000);
   const [cacheReadTokens, setCacheReadTokens] = useState(0);
   const [cacheCreateTokens, setCacheCreateTokens] = useState(0);
+  const [cacheCreate12hTokens, setCacheCreate12hTokens] = useState(0);
   const [cacheCreate1hTokens, setCacheCreate1hTokens] = useState(0);
   const [imageTokens, setImageTokens] = useState(0);
   const [imageOutputTokens, setImageOutputTokens] = useState(0);
@@ -1493,11 +1494,12 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
   );
 
   const extraTokenValues = {
-    cacheReadTokens, cacheCreateTokens, cacheCreate1hTokens,
+    cacheReadTokens, cacheCreateTokens, cacheCreate1hTokens, cacheCreate12hTokens,
     imageTokens, imageOutputTokens, audioInputTokens, audioOutputTokens,
   };
   const extraTokenSetters = {
     cacheReadTokens: setCacheReadTokens, cacheCreateTokens: setCacheCreateTokens,
+    cacheCreate12hTokens: setCacheCreate12hTokens,
     cacheCreate1hTokens: setCacheCreate1hTokens, imageTokens: setImageTokens,
     imageOutputTokens: setImageOutputTokens, audioInputTokens: setAudioInputTokens,
     audioOutputTokens: setAudioOutputTokens,
@@ -1511,7 +1513,7 @@ export default function TieredPricingEditor({ model, onExprChange, requestRuleEx
       return result;
     },
     [effectiveExpr, promptTokens, completionTokens,
-      cacheReadTokens, cacheCreateTokens, cacheCreate1hTokens,
+      cacheReadTokens, cacheCreateTokens, cacheCreate1hTokens, cacheCreate12hTokens,
       imageTokens, imageOutputTokens, audioInputTokens, audioOutputTokens],
   );
 

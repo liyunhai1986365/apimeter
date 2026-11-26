@@ -1,5 +1,8 @@
 export const DEFAULT_PRICES: Record<string, number> = {
   web_search: 10.0,
+  web_fetch: 0,
+  code_execution: 0,
+  tool_search: 0,
   web_search_preview: 10.0,
   'web_search_preview:gpt-4o*': 25.0,
   'web_search_preview:gpt-4.1*': 25.0,

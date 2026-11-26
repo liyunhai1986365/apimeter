@@ -20,6 +20,8 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 func sendStreamData(c *gin.Context, info *relaycommon.RelayInfo, data string, forceFormat bool, thinkToContent bool) error {
@@ -112,84 +114,81 @@ func OaiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Re
 
 	defer service.CloseResponseBodyGracefully(resp)
 
-	model := info.UpstreamModelName
-	var responseId string
-	var createAt int64 = 0
-	var systemFingerprint string
-	var containStreamUsage bool
 	var responseTextBuilder strings.Builder
 	var toolCount int
-	var usage = &dto.Usage{}
-	var lastStreamData string
-	var secondLastStreamData string // 存储倒数第二个stream data，用于音频模型
+	var reports chatStreamUsage
+	var lastFrame, pendingChoice string
 	seenStreamToolCalls := make(map[string]struct{})
 	var streamFunctionCallNames []string
 
-	// 检查是否为音频模型
-	isAudioModel := strings.Contains(strings.ToLower(model), "audio")
-
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
-		if lastStreamData != "" {
-			if err := HandleStreamFormat(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent); err != nil {
-				common.SysLog("error handling stream format: " + err.Error())
+		if data == "" {
+			return
+		}
+		lastFrame = data
+		collectStreamFunctionCallNames(data, seenStreamToolCalls, &streamFunctionCallNames)
+		if err := processTokenData(info.RelayMode, data, &responseTextBuilder, &toolCount); err != nil {
+			sr.Error(err)
+		}
+		reports.observeCache(info.ChannelType, data)
+		raw := gjson.Get(data, "usage")
+		if raw.IsObject() {
+			if err := reports.observe(raw); err != nil {
 				sr.Error(err)
 			}
+			data, _ = sjson.Delete(data, "usage")
 		}
-		if len(data) > 0 {
-			// 对音频模型，保存倒数第二个stream data
-			if isAudioModel && lastStreamData != "" {
-				secondLastStreamData = lastStreamData
+		if raw.Exists() && isUsageOnlyFrame(data) {
+			return
+		}
+		if info.RelayFormat != types.RelayFormatOpenAI {
+			if gjson.Get(data, "choices.#").Int() == 0 {
+				return
 			}
-
-			lastStreamData = data
-			collectStreamFunctionCallNames(data, seenStreamToolCalls, &streamFunctionCallNames)
-			if err := processTokenData(info.RelayMode, data, &responseTextBuilder, &toolCount); err != nil {
-				logger.LogError(c, "error processing stream token data: "+err.Error())
+			// The converters attach usage to the terminal choice. Usage-only
+			// trailers must not displace that choice or close the stream early.
+			data, pendingChoice = pendingChoice, data
+		}
+		if data != "" {
+			if err := HandleStreamFormat(c, info, data, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent); err != nil {
 				sr.Error(err)
 			}
 		}
 	})
 
-	// 对音频模型，从倒数第二个stream data中提取usage信息
-	if isAudioModel && secondLastStreamData != "" {
-		var streamResp struct {
-			Usage *dto.Usage `json:"usage"`
+	usage, public, err := reports.finish(c, info, responseTextBuilder.String(), toolCount)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
+	}
+	if info.RelayFormat == types.RelayFormatOpenAI {
+		if info.ShouldIncludeUsage {
+			meta := gjson.Parse(lastFrame)
+			model := meta.Get("model").String()
+			if model == "" {
+				model = info.UpstreamModelName
+			}
+			frame := helper.GenerateFinalUsageResponse(meta.Get("id").String(), meta.Get("created").Int(), info.ResponseModel(model), *usage)
+			frame.SetSystemFingerprint(meta.Get("system_fingerprint").String())
+			envelope, _ := common.Marshal(frame)
+			envelope, _ = sjson.SetRawBytes(envelope, "usage", public)
+			_ = helper.StringData(c, string(envelope))
 		}
-		err := common.Unmarshal([]byte(secondLastStreamData), &streamResp)
-		if err == nil && streamResp.Usage != nil && service.ValidUsage(streamResp.Usage) {
-			usage = streamResp.Usage
-			containStreamUsage = true
-
-			if common.DebugEnabled {
-				logger.LogDebug(c, "Audio model usage extracted from second last SSE: PromptTokens=%d, CompletionTokens=%d, TotalTokens=%d, InputTokens=%d, OutputTokens=%d",
-					usage.PromptTokens, usage.CompletionTokens, usage.TotalTokens,
-					usage.InputTokens, usage.OutputTokens)
+		helper.Done(c)
+	} else if pendingChoice != "" || lastFrame != "" {
+		if pendingChoice == "" {
+			pendingChoice = lastFrame
+		}
+		pendingChoice, _ = sjson.Set(pendingChoice, "usage", usage)
+		if err := HandleStreamFormat(c, info, pendingChoice, false, false); err != nil {
+			logger.LogError(c, "error sending final choice: "+err.Error())
+		}
+		if info.RelayFormat == types.RelayFormatClaude && !info.EnsureClaudeConvertInfo().Done {
+			// An upstream can end after content without an explicit finish reason.
+			if err := HandleStreamFormat(c, info, `{"choices":[]}`, false, false); err != nil {
+				logger.LogError(c, "error closing Claude stream: "+err.Error())
 			}
 		}
 	}
-
-	// 处理最后的响应
-	shouldSendLastResp := true
-	if err := handleLastResponse(lastStreamData, &responseId, &createAt, &systemFingerprint, &model, &usage,
-		&containStreamUsage, info, &shouldSendLastResp); err != nil {
-		logger.LogError(c, fmt.Sprintf("error handling last response: %s, lastStreamData: [%s]", err.Error(), lastStreamData))
-	}
-
-	if info.RelayFormat == types.RelayFormatOpenAI {
-		if shouldSendLastResp {
-			_ = sendStreamData(c, info, lastStreamData, info.ChannelSetting.ForceFormat, info.ChannelSetting.ThinkingToContent)
-		}
-	}
-
-	if !containStreamUsage {
-		usage = service.ResponseText2Usage(c, responseTextBuilder.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
-		usage.CompletionTokens += toolCount * 7
-	}
-
-	applyUsagePostProcessing(info, usage, common.StringToByteSlice(lastStreamData))
-
-	HandleFinalResponse(c, info, lastStreamData, responseId, createAt, info.ResponseModel(model), systemFingerprint, usage, containStreamUsage)
-
 	return usage, nil
 }
 
@@ -270,21 +269,19 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		forceFormat = true
 	}
 
-	usageModified := false
-	if simpleResponse.Usage.PromptTokens == 0 {
-		completionTokens := simpleResponse.Usage.CompletionTokens
-		if completionTokens == 0 {
+	// A reported zero is valid. Fill only missing counters, keeping upstream
+	// token breakdowns for billing and unknown extensions in the public reply.
+	if u := &simpleResponse.Usage; u.PromptTokens == 0 || u.CompletionTokens == 0 || u.TotalTokens == 0 {
+		responseBody, err = fillMissingChatUsage(responseBody, u, info.GetEstimatePromptTokens, func() int {
+			tokens := 0
 			for _, choice := range simpleResponse.Choices {
-				ctkm := service.CountTextToken(choice.Message.StringContent()+choice.Message.GetReasoningContent(), info.UpstreamModelName)
-				completionTokens += ctkm
+				tokens += service.CountTextToken(choice.Message.StringContent()+choice.Message.GetReasoningContent(), info.UpstreamModelName)
 			}
+			return tokens
+		})
+		if err != nil {
+			return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 		}
-		simpleResponse.Usage = dto.Usage{
-			PromptTokens:     info.GetEstimatePromptTokens(),
-			CompletionTokens: completionTokens,
-			TotalTokens:      info.GetEstimatePromptTokens() + completionTokens,
-		}
-		usageModified = true
 	}
 
 	applyUsagePostProcessing(info, &simpleResponse.Usage, responseBody)
@@ -293,19 +290,11 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 
 	switch info.RelayFormat {
 	case types.RelayFormatOpenAI:
-		if usageModified || simpleResponse.Model != originalResponseModel {
-			var bodyMap map[string]interface{}
-			err = common.Unmarshal(responseBody, &bodyMap)
+		if simpleResponse.Model != originalResponseModel {
+			responseBody, err = sjson.SetBytes(responseBody, "model", simpleResponse.Model)
 			if err != nil {
-				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				return nil, types.NewError(err, types.ErrorCodeBadResponseBody)
 			}
-			if usageModified {
-				bodyMap["usage"] = simpleResponse.Usage.ToOpenAIChatUsage()
-			}
-			if simpleResponse.Model != originalResponseModel {
-				bodyMap["model"] = simpleResponse.Model
-			}
-			responseBody, _ = common.Marshal(bodyMap)
 		}
 		if forceFormat {
 			responseBody, err = common.Marshal(simpleResponse)
@@ -340,6 +329,52 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 
 	return &simpleResponse.Usage, nil
+}
+
+// Prefer reported counters, then exact differences; only estimate what is missing.
+func fillMissingChatUsage(body []byte, u *dto.Usage, estimatePrompt, estimateCompletion func() int) ([]byte, error) {
+	raw := gjson.GetBytes(body, "usage")
+	hasPrompt := raw.Get("prompt_tokens").Type == gjson.Number
+	hasCompletion := raw.Get("completion_tokens").Type == gjson.Number
+	hasTotal := raw.Get("total_tokens").Type == gjson.Number
+	if !hasCompletion {
+		if hasTotal && hasPrompt && u.TotalTokens >= u.PromptTokens {
+			u.CompletionTokens = u.TotalTokens - u.PromptTokens
+		} else {
+			u.CompletionTokens = estimateCompletion()
+			if hasTotal && u.TotalTokens >= 0 {
+				u.CompletionTokens = min(u.CompletionTokens, u.TotalTokens)
+			}
+		}
+	}
+	if !hasPrompt {
+		if hasTotal && u.TotalTokens >= u.CompletionTokens {
+			u.PromptTokens = u.TotalTokens - u.CompletionTokens
+		} else {
+			u.PromptTokens = estimatePrompt()
+		}
+	}
+	if !hasTotal {
+		u.TotalTokens = u.PromptTokens + u.CompletionTokens
+	}
+	for _, counter := range []struct {
+		name    string
+		present bool
+		value   int
+	}{
+		{"prompt_tokens", hasPrompt, u.PromptTokens},
+		{"completion_tokens", hasCompletion, u.CompletionTokens},
+		{"total_tokens", hasTotal, u.TotalTokens},
+	} {
+		if !counter.present {
+			var err error
+			body, err = sjson.SetBytes(body, "usage."+counter.name, counter.value)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	return body, nil
 }
 
 func streamTTSResponse(c *gin.Context, resp *http.Response) {

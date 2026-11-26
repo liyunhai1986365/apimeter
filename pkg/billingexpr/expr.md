@@ -34,7 +34,8 @@ Powered by [expr-lang/expr](https://github.com/expr-lang/expr). Expressions are 
 | `len` | 输入上下文总长度（**条件判断用**）。不受自动排除影响，始终反映完整输入长度。非 Claude：等于原始 `prompt_tokens`；Claude：等于文本输入 + 缓存读取 + 缓存创建 |
 | `cr` | 缓存命中（读取）token 数 |
 | `cc` | 缓存创建 token 数（Claude 5分钟 TTL / 通用） |
-| `cc1h` | 缓存创建 token 数 — 1小时 TTL（Claude 专用） |
+| `cc12h` | OpenAI 12 小时缓存写入数。显式使用时按公式单独定价，`cc` 只计其余写入（30m 或未标注时长）。省略时，12h 写入按 2 倍折入 `cc`；若也省略 `cc`，则按 2 倍计入 `p`。阶梯条件 `len` 始终使用实际输入长度。 |
+| `cc1h` | Claude 1 小时缓存写入数。显式使用时按公式定价（可为零）；省略时，每个 1h 写入按 1.6 个 5m 写入计入 `cc`。若也省略 `cc`，则将折算后的写入计入 `p`。 |
 | `img` | 图片输入 token 数 |
 | `ai` | 音频输入 token 数 |
 
@@ -170,6 +171,8 @@ Two editing modes:
 
 The editor outputs a billing expression string and an optional request rule expression string. These are combined via `combineBillingExpr(billingExpr, requestRuleExpr)` before storage.
 
+The default theme previews the combined draft through the root-only `POST /api/option/billing-preview`. Enter counts as reported by the chosen upstream format (OpenAI totals or Claude independent counts). The server uses the settlement token normalization, Expr runtime and configured quota per dollar, at group ratio 1. No configuration or balance is written. Request and response probes have no sample payload or headers in this token-only preview.
+
 ### 2. Storage
 
 **File**: `setting/billing_setting/tiered_billing.go`
@@ -202,7 +205,7 @@ After the upstream response returns with actual token usage:
 1. `BuildTieredTokenParams(usage, isClaudeUsageSemantic, usedVars)`:
    - Reads actual token counts from `dto.Usage`
    - For GPT-format APIs (prompt_tokens includes everything): subtracts sub-categories from P/C **only when** the expression uses their variables (detected via AST introspection of the compiled expression)
-   - For Claude-format APIs (input_tokens is text-only): no adjustment needed
+   - For Claude-format APIs (input_tokens is text-only): add cache categories without a separate price to P after computing the physical context length
 
 2. `TryTieredSettle(relayInfo, params)`:
    - Uses the captured `BillingSnapshot`, whose group-dependent fields have been refreshed from the final selected group
@@ -216,7 +219,7 @@ After the upstream response returns with actual token usage:
 
 Backend: `InjectTieredBillingInfo()` adds `billing_mode`, `expr_b64` (base64 expression), `matched_tier`, and the structured `request_rules` trace list to the log's `other` JSON.
 
-Successful settlement also records `tiered_token_params`: the exact normalized `p`, `c`, `len`, `cr`, `cc`, `cc1h`, `img`, `img_o`, `ai`, and `ao` passed to the expression. Zero values are included. This snapshot is separate from the original upstream usage and is absent for estimates or failed settlement. Usage-log billing details prefer these quantities without normalizing them again. Older logs without the snapshot retain their existing display logic; they must not be retroactively normalized using newer settlement rules.
+Successful settlement also records `tiered_token_params`: the exact normalized `p`, `c`, `len`, `cr`, `cc`, `cc1h`, `cc12h`, `img`, `img_o`, `ai`, and `ao` passed to the expression. Zero values are included. This snapshot is separate from the original upstream usage and is absent for estimates or failed settlement. Usage-log billing details prefer these quantities without normalizing them again. Older logs without the snapshot retain their existing display logic; they must not be retroactively normalized using newer settlement rules.
 
 Frontend: Detects `billing_mode === "tiered_expr"`, decodes `expr_b64`, parses tiers via shared `parseTiersFromExpr()`, and renders request multipliers from `request_rules` when present. Without log traces, it falls back to parsing the stored expression.
 

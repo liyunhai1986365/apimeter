@@ -15,6 +15,7 @@ function createMaps(
     ratioMap: {},
     cacheMap: {},
     createCacheMap: {},
+    createCache1hMap: {},
     completionMap: {},
     imageMap: {},
     audioMap: {},

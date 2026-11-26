@@ -123,6 +123,15 @@ export const BILLING_VARS: BillingVar[] = [
     group: 'cache',
   },
   {
+    key: 'cc12h',
+    field: 'cacheCreate12hPrice',
+    tierField: 'cache_create_12h_unit_cost',
+    label: 'Cache create (12h) price',
+    shortLabel: 'Cache Write (12h)',
+    side: 'input',
+    group: 'cache',
+  },
+  {
     key: 'img',
     field: 'imagePrice',
     tierField: 'image_unit_cost',
@@ -492,13 +501,13 @@ function parseExprLiteral(raw: string): string | null {
 
 function tryParseTimeCondition(expr: string): RequestCondition | null {
   let m = expr.match(
-    /^(hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) \|\| \1\("\2"\) < ([\d.eE+-]+)$/
+    /^(hour|minute|weekday|month|day)\(("(?:[^"\\]|\\.)+")\) >= ([\d.eE+-]+) \|\| \1\(\2\) < ([\d.eE+-]+)$/
   )
   if (m) {
     return {
       source: 'time',
       timeFunc: m[1] as TimeFunc,
-      timezone: m[2],
+      timezone: JSON.parse(m[2]) as string,
       mode: MATCH_RANGE,
       value: '',
       rangeStart: m[3],
@@ -506,21 +515,7 @@ function tryParseTimeCondition(expr: string): RequestCondition | null {
     }
   }
   m = expr.match(
-    /^\((hour|minute|weekday|month|day)\("([^"]+)"\) >= ([\d.eE+-]+) \|\| \1\("\2"\) < ([\d.eE+-]+)\)$/
-  )
-  if (m) {
-    return {
-      source: 'time',
-      timeFunc: m[1] as TimeFunc,
-      timezone: m[2],
-      mode: MATCH_RANGE,
-      value: '',
-      rangeStart: m[3],
-      rangeEnd: m[4],
-    }
-  }
-  m = expr.match(
-    /^(hour|minute|weekday|month|day)\("([^"]+)"\) (==|>=|<) ([\d.eE+-]+)$/
+    /^(hour|minute|weekday|month|day)\(("(?:[^"\\]|\\.)+")\) (==|>=|<) ([\d.eE+-]+)$/
   )
   if (m) {
     const opMap: Record<string, string> = {
@@ -531,7 +526,7 @@ function tryParseTimeCondition(expr: string): RequestCondition | null {
     return {
       source: 'time',
       timeFunc: m[1] as TimeFunc,
-      timezone: m[2],
+      timezone: JSON.parse(m[2]) as string,
       mode: opMap[m[3]] || MATCH_EQ,
       value: m[4],
       rangeStart: '',

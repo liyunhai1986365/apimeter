@@ -50,7 +50,7 @@ signal.pause()
     with (patch('tempfile.tempdir', str(work)),
           patch.object(local_services, '_run', fake_command),
           patch.object(local_services._Services, 'db', return_value=[]),
-          patch.object(local_services._Services, 'redis_cmd', return_value='PONG'),
+          patch.object(local_services._Services, 'ping_redis_from_host'),
           patch.object(run, 'serve', nullcontext), patch.object(run, 'Server'),
           patch.object(run, 'VideoServer'), patch.object(run.Suite, 'start_app', start_gateway),
           patch.object(run.Suite, 'setup', wait_for_stop)):

@@ -41,6 +41,9 @@ const (
 // constants, not a mutable package map or operator configuration.
 func seedHardcodedToolPrices(prices map[string]float64) {
 	prices["web_search"] = defaultWebSearchToolPrice
+	prices["web_fetch"] = 0
+	prices["code_execution"] = 0
+	prices["tool_search"] = 0
 	prices["web_search_preview"] = defaultWebSearchPreviewToolPrice
 	prices["file_search"] = defaultFileSearchToolPrice
 	prices["google_search"] = defaultGoogleSearchToolPrice

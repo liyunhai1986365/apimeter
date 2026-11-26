@@ -42,6 +42,7 @@ type Pricing struct {
 	CompletionRatio        float64                 `json:"completion_ratio"`
 	CacheRatio             *float64                `json:"cache_ratio,omitempty"`
 	CreateCacheRatio       *float64                `json:"create_cache_ratio,omitempty"`
+	CreateCache1hRatio     *float64                `json:"create_cache_1h_ratio,omitempty"`
 	ImageRatio             *float64                `json:"image_ratio,omitempty"`
 	AudioRatio             *float64                `json:"audio_ratio,omitempty"`
 	AudioCompletionRatio   *float64                `json:"audio_completion_ratio,omitempty"`
@@ -488,6 +489,9 @@ func updatePricing() {
 		}
 		if createCacheRatio, ok := ratio_setting.GetCreateCacheRatio(model); ok {
 			pricing.CreateCacheRatio = &createCacheRatio
+		}
+		if createCache1hRatio, ok := ratio_setting.GetCreateCache1hRatio(model); ok {
+			pricing.CreateCache1hRatio = &createCache1hRatio
 		}
 		if imageRatio, ok := ratio_setting.GetImageRatio(model); ok {
 			pricing.ImageRatio = &imageRatio

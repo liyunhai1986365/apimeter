@@ -75,6 +75,7 @@ const PRIMARY_DYNAMIC_FIELDS = new Set(['inputPrice', 'outputPrice'])
 const CACHE_WRITE_DYNAMIC_FIELDS = new Set([
   'cacheCreatePrice',
   'cacheCreate1hPrice',
+  'cacheCreate12hPrice',
 ])
 
 export function isDynamicPricingModel(model: PricingModel): boolean {
@@ -214,7 +215,7 @@ export function getDynamicPriceEntries(
         key: variable.key,
         field: variable.field,
         label: variable.label,
-        shortLabel: variable.shortLabel,
+        shortLabel: variable.key === 'cc' && tier.cacheCreate12hPrice != null ? 'Cache Write (30m)' : variable.shortLabel,
         value,
         formatted:
           variable.unit === 'second'

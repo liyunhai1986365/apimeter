@@ -1,6 +1,7 @@
 package ratio_setting
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -363,8 +364,39 @@ func ModelPrice2JSONString() string {
 	return modelPriceMap.MarshalJSONString()
 }
 
-func UpdateModelPriceByJSONString(jsonStr string) error {
-	return types.LoadFromJsonStringWithCallback(modelPriceMap, jsonStr, InvalidateExposedDataCache)
+func parseModelRates(raw, key string) (map[string]float64, error) {
+	var entries map[string]any
+	if err := common.UnmarshalJsonStr(raw, &entries); err != nil {
+		return nil, fmt.Errorf("%s: %w", key, err)
+	}
+	if entries == nil {
+		return nil, fmt.Errorf("%s must be a JSON object", key)
+	}
+	prices := make(map[string]float64, len(entries))
+	for name, value := range entries {
+		// JSON decoding already rejects NaN, infinity, and float64 overflow.
+		price, ok := value.(float64)
+		if !ok || price < 0 {
+			return nil, fmt.Errorf("%s[%q] must be a finite, non-negative number", key, name)
+		}
+		prices[name] = price
+	}
+	return prices, nil
+}
+
+func ValidateModelPricesJSON(raw string) error {
+	_, err := parseModelRates(raw, "ModelPrice")
+	return err
+}
+
+func UpdateModelPriceByJSONString(raw string) error {
+	prices, err := parseModelRates(raw, "ModelPrice")
+	if err != nil {
+		return err
+	}
+	modelPriceMap.ReplaceAll(prices)
+	InvalidateExposedDataCache()
+	return nil
 }
 
 // GetModelPrice 返回模型的价格，如果模型不存在则返回-1，false

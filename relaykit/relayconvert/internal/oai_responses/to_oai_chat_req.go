@@ -71,6 +71,7 @@ func ResponsesRequestToChatCompletionsRequest(req *dto.OpenAIResponsesRequest) (
 		Store:                req.Store,
 		Metadata:             req.Metadata,
 		SafetyIdentifier:     req.SafetyIdentifier,
+		PromptCacheOptions:   req.PromptCacheOptions,
 		PromptCacheRetention: req.PromptCacheRetention,
 		EnableThinking:       req.EnableThinking,
 		ThinkingBudget:       req.ThinkingBudget,

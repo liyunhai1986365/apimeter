@@ -1202,7 +1202,7 @@ function GroupPricingSection(props: {
               priceRate={props.priceRate}
               usdExchangeRate={props.usdExchangeRate}
               extraPriceTypes={extraPriceTypes}
-              showCacheWritePrices={props.model.create_cache_ratio != null}
+              showCacheWritePrices={props.model.create_cache_ratio != null || props.model.create_cache_1h_ratio != null}
               performance={performanceByGroup[group]}
               performanceLoading={metricsQuery.isLoading}
               isPage={isPage}

@@ -1,5 +1,10 @@
 {
   "translation": {
+    "Leave empty to use 1.6 times the 5m price.": "Để trống để dùng mức giá bằng 1,6 lần giá 5 phút.",
+    "Cache Write (12h)": "Ghi bộ nhớ đệm (12 giờ)",
+    "Cache Write (30m)": "Ghi bộ nhớ đệm (30 phút)",
+    "Cache create (12h) price": "Giá ghi bộ nhớ đệm (12 giờ)",
+    "Upstream usage format": "Định dạng báo cáo token của nhà cung cấp",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

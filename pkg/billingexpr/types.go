@@ -17,16 +17,17 @@ type RequestInput struct {
 // Fields beyond P and C are optional — when absent they default to 0,
 // which means cache-unaware expressions keep working unchanged.
 type TokenParams struct {
-	P    float64 `json:"p"`     // prompt tokens (text) — auto-excludes sub-categories priced separately
-	C    float64 `json:"c"`     // completion tokens (text) — auto-excludes sub-categories priced separately
-	Len  float64 `json:"len"`   // total input context length for tier conditions (non-Claude: raw prompt_tokens; Claude: text + cache read + cache creation)
-	CR   float64 `json:"cr"`    // cache read (hit) tokens
-	CC   float64 `json:"cc"`    // cache creation tokens (5-min TTL for Claude, generic for others)
-	CC1h float64 `json:"cc1h"`  // cache creation tokens — 1-hour TTL (Claude only)
-	Img  float64 `json:"img"`   // image input tokens
-	ImgO float64 `json:"img_o"` // image output tokens
-	AI   float64 `json:"ai"`    // audio input tokens
-	AO   float64 `json:"ao"`    // audio output tokens
+	P     float64 `json:"p"`     // prompt tokens (text) — auto-excludes sub-categories priced separately
+	C     float64 `json:"c"`     // completion tokens (text) — auto-excludes sub-categories priced separately
+	Len   float64 `json:"len"`   // total input context length for tier conditions (non-Claude: raw prompt_tokens; Claude: text + cache read + cache creation)
+	CR    float64 `json:"cr"`    // cache read (hit) tokens
+	CC    float64 `json:"cc"`    // cache creation tokens (5-min TTL for Claude, generic for others)
+	CC12h float64 `json:"cc12h"` // OpenAI 12-hour cache writes
+	CC1h  float64 `json:"cc1h"`  // cache creation tokens — 1-hour TTL (Claude only)
+	Img   float64 `json:"img"`   // image input tokens
+	ImgO  float64 `json:"img_o"` // image output tokens
+	AI    float64 `json:"ai"`    // audio input tokens
+	AO    float64 `json:"ao"`    // audio output tokens
 }
 
 // RequestRuleTrace describes one request-dependent multiplier detected at compile time.

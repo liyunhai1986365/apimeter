@@ -76,6 +76,15 @@ const modelSchema = z.object({
       })
     }
   }),
+  CreateCache1hRatio: z.string().superRefine((value, ctx) => {
+    const result = validateJsonString(value)
+    if (!result.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.message || 'Invalid JSON',
+      })
+    }
+  }),
   CompletionRatio: z.string().superRefine((value, ctx) => {
     const result = validateJsonString(value)
     if (!result.valid) {
@@ -282,6 +291,7 @@ export function RatioSettingsCard({
     ModelRatio: normalizeJsonString(modelDefaults.ModelRatio),
     CacheRatio: normalizeJsonString(modelDefaults.CacheRatio),
     CreateCacheRatio: normalizeJsonString(modelDefaults.CreateCacheRatio),
+    CreateCache1hRatio: normalizeJsonString(modelDefaults.CreateCache1hRatio),
     CompletionRatio: normalizeJsonString(modelDefaults.CompletionRatio),
     ImageRatio: normalizeJsonString(modelDefaults.ImageRatio),
     AudioRatio: normalizeJsonString(modelDefaults.AudioRatio),
@@ -317,6 +327,7 @@ export function RatioSettingsCard({
       ModelRatio: formatJsonForTextarea(modelDefaults.ModelRatio),
       CacheRatio: formatJsonForTextarea(modelDefaults.CacheRatio),
       CreateCacheRatio: formatJsonForTextarea(modelDefaults.CreateCacheRatio),
+      CreateCache1hRatio: formatJsonForTextarea(modelDefaults.CreateCache1hRatio),
       CompletionRatio: formatJsonForTextarea(modelDefaults.CompletionRatio),
       ImageRatio: formatJsonForTextarea(modelDefaults.ImageRatio),
       AudioRatio: formatJsonForTextarea(modelDefaults.AudioRatio),
@@ -357,6 +368,7 @@ export function RatioSettingsCard({
       ModelRatio: normalizeJsonString(modelDefaults.ModelRatio),
       CacheRatio: normalizeJsonString(modelDefaults.CacheRatio),
       CreateCacheRatio: normalizeJsonString(modelDefaults.CreateCacheRatio),
+      CreateCache1hRatio: normalizeJsonString(modelDefaults.CreateCache1hRatio),
       CompletionRatio: normalizeJsonString(modelDefaults.CompletionRatio),
       ImageRatio: normalizeJsonString(modelDefaults.ImageRatio),
       AudioRatio: normalizeJsonString(modelDefaults.AudioRatio),
@@ -374,6 +386,7 @@ export function RatioSettingsCard({
       ModelRatio: formatJsonForTextarea(modelDefaults.ModelRatio),
       CacheRatio: formatJsonForTextarea(modelDefaults.CacheRatio),
       CreateCacheRatio: formatJsonForTextarea(modelDefaults.CreateCacheRatio),
+      CreateCache1hRatio: formatJsonForTextarea(modelDefaults.CreateCache1hRatio),
       CompletionRatio: formatJsonForTextarea(modelDefaults.CompletionRatio),
       ImageRatio: formatJsonForTextarea(modelDefaults.ImageRatio),
       AudioRatio: formatJsonForTextarea(modelDefaults.AudioRatio),
@@ -430,6 +443,7 @@ export function RatioSettingsCard({
         ModelRatio: normalizeJsonString(values.ModelRatio),
         CacheRatio: normalizeJsonString(values.CacheRatio),
         CreateCacheRatio: normalizeJsonString(values.CreateCacheRatio),
+        CreateCache1hRatio: normalizeJsonString(values.CreateCache1hRatio),
         CompletionRatio: normalizeJsonString(values.CompletionRatio),
         ImageRatio: normalizeJsonString(values.ImageRatio),
         AudioRatio: normalizeJsonString(values.AudioRatio),
@@ -581,6 +595,7 @@ export function RatioSettingsCard({
           CompletionRatio: modelDefaults.CompletionRatio,
           CacheRatio: modelDefaults.CacheRatio,
           CreateCacheRatio: modelDefaults.CreateCacheRatio,
+          CreateCache1hRatio: modelDefaults.CreateCache1hRatio,
           ImageRatio: modelDefaults.ImageRatio,
           AudioRatio: modelDefaults.AudioRatio,
           AudioCompletionRatio: modelDefaults.AudioCompletionRatio,

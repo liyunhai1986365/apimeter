@@ -238,6 +238,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
+			optionRoute.POST("/billing-preview", controller.PreviewBillingExpression)
 			optionRoute.POST("/announcements/email", controller.SendAnnouncementEmail)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/crypto-payment", controller.GetCryptoPaymentConfig)

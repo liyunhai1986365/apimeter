@@ -310,9 +310,10 @@ type OpenAIChatUsage struct {
 }
 
 type OpenAIChatPromptTokensDetails struct {
-	CachedTokens     int `json:"cached_tokens"`
-	AudioTokens      int `json:"audio_tokens"`
-	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
+	CachedTokens            int                     `json:"cached_tokens"`
+	AudioTokens             int                     `json:"audio_tokens"`
+	CacheWriteTokens        int                     `json:"cache_write_tokens,omitempty"`
+	CacheWriteTokensDetails *CacheWriteTokenDetails `json:"cache_write_tokens_details,omitempty"`
 }
 
 type OpenAIChatCompletionTokensDetails struct {
@@ -331,11 +332,12 @@ func (u Usage) ToOpenAIChatUsage() OpenAIChatUsage {
 
 	if u.PromptTokensDetails.CachedTokens != 0 ||
 		u.PromptTokensDetails.AudioTokens != 0 ||
-		u.PromptTokensDetails.CacheWriteTokens != 0 {
+		u.PromptTokensDetails.CacheWriteTokens != 0 || u.PromptTokensDetails.CacheWriteTokensDetails != nil {
 		chatUsage.PromptTokensDetails = &OpenAIChatPromptTokensDetails{
-			CachedTokens:     u.PromptTokensDetails.CachedTokens,
-			AudioTokens:      u.PromptTokensDetails.AudioTokens,
-			CacheWriteTokens: u.PromptTokensDetails.CacheWriteTokens,
+			CachedTokens:            u.PromptTokensDetails.CachedTokens,
+			AudioTokens:             u.PromptTokensDetails.AudioTokens,
+			CacheWriteTokens:        u.PromptTokensDetails.CacheWriteTokens,
+			CacheWriteTokensDetails: u.PromptTokensDetails.Clone().CacheWriteTokensDetails,
 		}
 	}
 
@@ -365,18 +367,42 @@ type OpenAIVideoResponse struct {
 }
 
 type InputTokenDetails struct {
-	CachedTokens         int `json:"cached_tokens"`
-	CachedCreationTokens int `json:"cached_creation_tokens,omitempty"`
-	CacheWriteTokens     int `json:"cache_write_tokens,omitempty"`
-	TextTokens           int `json:"text_tokens"`
-	AudioTokens          int `json:"audio_tokens"`
-	ImageTokens          int `json:"image_tokens"`
+	CachedTokens            int                     `json:"cached_tokens"`
+	CachedCreationTokens    int                     `json:"cached_creation_tokens,omitempty"`
+	CacheWriteTokens        int                     `json:"cache_write_tokens,omitempty"`
+	CacheWriteTokensDetails *CacheWriteTokenDetails `json:"cache_write_tokens_details,omitempty"`
+	TextTokens              int                     `json:"text_tokens"`
+	AudioTokens             int                     `json:"audio_tokens"`
+	ImageTokens             int                     `json:"image_tokens"`
+}
+
+type CacheWriteTokenDetails struct {
+	TTL30mTokens int `json:"ttl_30m_tokens"`
+	TTL12hTokens int `json:"ttl_12h_tokens"`
+}
+
+func (d InputTokenDetails) Clone() InputTokenDetails {
+	if d.CacheWriteTokensDetails != nil {
+		split := *d.CacheWriteTokensDetails
+		d.CacheWriteTokensDetails = &split
+	}
+	return d
+}
+
+func (d InputTokenDetails) CacheWrite12hTokens() int {
+	if d.CacheWriteTokensDetails == nil {
+		return 0
+	}
+	return min(max(0, d.CacheWriteTokensDetails.TTL12hTokens), d.CacheCreationTokensTotal())
 }
 
 func (d InputTokenDetails) CacheCreationTokensTotal() int {
 	total := d.CachedCreationTokens
 	if d.CacheWriteTokens > total {
 		total = d.CacheWriteTokens
+	}
+	if total == 0 && d.CacheWriteTokensDetails != nil {
+		return max(0, d.CacheWriteTokensDetails.TTL30mTokens) + max(0, d.CacheWriteTokensDetails.TTL12hTokens)
 	}
 	if total < 0 {
 		return 0
@@ -507,6 +533,25 @@ type ResponsesStreamResponse struct {
 	SummaryIndex *int                           `json:"summary_index,omitempty"`
 	ItemID       string                         `json:"item_id,omitempty"`
 	Part         *ResponsesReasoningSummaryPart `json:"part,omitempty"`
+}
+
+// Object-valued shell deltas travel in the original SSE frame. Text converters
+// consume only string deltas.
+func (r *ResponsesStreamResponse) UnmarshalJSON(data []byte) error {
+	type event ResponsesStreamResponse
+	var wire struct {
+		*event
+		RawDelta json.RawMessage `json:"delta"`
+	}
+	*r = ResponsesStreamResponse{}
+	wire.event = (*event)(r)
+	if err := kitutil.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	if len(wire.RawDelta) > 0 && wire.RawDelta[0] == '"' {
+		return kitutil.Unmarshal(wire.RawDelta, &r.Delta)
+	}
+	return nil
 }
 
 // StreamError reads standard top-level error events and nested Responses failures.

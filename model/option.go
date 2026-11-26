@@ -4,10 +4,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/performance_setting"
@@ -21,6 +23,9 @@ type Option struct {
 	Key   string `json:"key" gorm:"primaryKey"`
 	Value string `json:"value"`
 }
+
+// Keep the local publication order consistent with database saves and reloads.
+var optionUpdateMu sync.Mutex
 
 func AllOption() ([]*Option, error) {
 	var options []*Option
@@ -159,6 +164,7 @@ func InitOptionMap() {
 	common.OptionMap["ModelPrice"] = ratio_setting.ModelPrice2JSONString()
 	common.OptionMap["CacheRatio"] = ratio_setting.CacheRatio2JSONString()
 	common.OptionMap["CreateCacheRatio"] = ratio_setting.CreateCacheRatio2JSONString()
+	common.OptionMap["CreateCache1hRatio"] = ratio_setting.CreateCache1hRatio2JSONString()
 	common.OptionMap["GroupRatio"] = ratio_setting.GroupRatio2JSONString()
 	common.OptionMap["GroupGroupRatio"] = ratio_setting.GroupGroupRatio2JSONString()
 	common.OptionMap["GroupModelRatio"] = ratio_setting.GroupModelRatio2JSONString()
@@ -217,11 +223,28 @@ func InitOptionMap() {
 }
 
 func loadOptionsFromDatabase() {
-	options, _ := AllOption()
+	optionUpdateMu.Lock()
+	defer optionUpdateMu.Unlock()
+	options, err := AllOption()
+	if err != nil {
+		common.SysError("failed to load options: " + err.Error())
+		return
+	}
 	for _, option := range options {
-		err := updateOptionMap(option.Key, option.Value)
-		if err != nil {
-			common.SysLog("failed to update option map: " + err.Error())
+		if option.Key == "billing_setting.billing_expr" {
+			common.OptionMapRWMutex.RLock()
+			current, loaded := common.OptionMap[option.Key]
+			common.OptionMapRWMutex.RUnlock()
+			if loaded && current == option.Value {
+				continue
+			}
+			if err := billing_setting.ValidateBillingExpressionsJSON(option.Value); err != nil {
+				common.SysError("failed to load " + option.Key + ": " + err.Error())
+				continue
+			}
+		}
+		if err := updateOptionMap(option.Key, option.Value); err != nil {
+			common.SysError("failed to load " + option.Key + ": " + err.Error())
 		}
 	}
 }
@@ -235,6 +258,14 @@ func SyncOptions(frequency int) {
 }
 
 func validateOptionValue(key string, value string) error {
+	switch key {
+	case "ModelPrice":
+		return ratio_setting.ValidateModelPricesJSON(value)
+	case "CreateCache1hRatio":
+		return ratio_setting.ValidateCreateCache1hRatioJSON(value)
+	case "billing_setting.billing_expr":
+		return billing_setting.ValidateBillingExpressionsJSON(value)
+	}
 	if key == operation_setting.ToolPriceOptionKey {
 		return operation_setting.ValidateToolPricesJSON(value)
 	}
@@ -248,6 +279,8 @@ func validateOptionValue(key string, value string) error {
 }
 
 func UpdateOption(key string, value string) error {
+	optionUpdateMu.Lock()
+	defer optionUpdateMu.Unlock()
 	if err := validateOptionValue(key, value); err != nil {
 		return err
 	}
@@ -276,6 +309,8 @@ func UpdateOption(key string, value string) error {
 // is touched — safe for callers that must commit a set of related options
 // atomically (e.g. payment gateway binding).
 func UpdateOptionsBulk(values map[string]string) error {
+	optionUpdateMu.Lock()
+	defer optionUpdateMu.Unlock()
 	if len(values) == 0 {
 		return nil
 	}
@@ -311,10 +346,10 @@ func UpdateOptionsBulk(values map[string]string) error {
 func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
-	common.OptionMap[key] = value
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
 	if handleConfigUpdate(key, value) {
+		common.OptionMap[key] = value
 		return nil // 已由配置系统处理
 	}
 
@@ -615,6 +650,8 @@ func updateOptionMap(key string, value string) (err error) {
 		err = ratio_setting.UpdateCacheRatioByJSONString(value)
 	case "CreateCacheRatio":
 		err = ratio_setting.UpdateCreateCacheRatioByJSONString(value)
+	case "CreateCache1hRatio":
+		err = ratio_setting.UpdateCreateCache1hRatioByJSONString(value)
 	case "ImageRatio":
 		err = ratio_setting.UpdateImageRatioByJSONString(value)
 	case "AudioRatio":
@@ -647,8 +684,10 @@ func updateOptionMap(key string, value string) (err error) {
 		err = operation_setting.UpdatePayMethodsByJsonString(value)
 	case "WaffoPayMethods":
 		// WaffoPayMethods is read directly from OptionMap via setting.GetWaffoPayMethods().
-		// The value is already stored in OptionMap at the top of this function (line: common.OptionMap[key] = value).
 		// No additional in-memory variable to update.
+	}
+	if err == nil {
+		common.OptionMap[key] = value
 	}
 	return err
 }
@@ -667,6 +706,12 @@ func handleConfigUpdate(key, value string) bool {
 
 	configName := parts[0]
 	configKey := parts[1]
+	if configName == "billing_setting" {
+		billing_setting.UpdateBillingField(configKey, value)
+		InvalidatePricingCache()
+		ratio_setting.InvalidateExposedDataCache()
+		return true
+	}
 
 	// 获取配置对象
 	cfg := config.GlobalConfig.Get(configName)
@@ -683,9 +728,6 @@ func handleConfigUpdate(key, value string) bool {
 	// 特定配置的后处理
 	if configName == "performance_setting" {
 		performance_setting.UpdateAndSync()
-	} else if configName == "billing_setting" {
-		InvalidatePricingCache()
-		ratio_setting.InvalidateExposedDataCache()
 	} else if configName == "theme" {
 		system_setting.UpdateAndSyncTheme()
 	}

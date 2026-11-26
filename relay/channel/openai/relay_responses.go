@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
@@ -44,8 +45,10 @@ func OaiResponsesHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		usage.CompletionTokens = responsesResponse.Usage.OutputTokens
 		usage.TotalTokens = responsesResponse.Usage.TotalTokens
 		if responsesResponse.Usage.InputTokensDetails != nil {
-			usage.PromptTokensDetails.CachedTokens = responsesResponse.Usage.InputTokensDetails.CachedTokens
-			usage.PromptTokensDetails.CacheWriteTokens = responsesResponse.Usage.InputTokensDetails.CacheWriteTokens
+			usage.PromptTokensDetails = responsesResponse.Usage.InputTokensDetails.Clone()
+		}
+		if responsesResponse.Usage.OutputTokensDetails != nil {
+			usage.CompletionTokenDetails = *responsesResponse.Usage.OutputTokensDetails
 		}
 	}
 	// Count actual tool invocations from Output (not tool declarations).
@@ -81,6 +84,7 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	defer service.CloseResponseBodyGracefully(resp)
 
 	var usage = &dto.Usage{}
+	var counts chatTokenCounts
 	var responseTextBuilder strings.Builder
 	imageCounter := &relaycommon.ImageGenerationCallCounter{}
 	imageCommitted := false
@@ -96,23 +100,36 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		}
 		sendResponsesStreamData(c, streamResponse, data)
 		switch streamResponse.Type {
-		case "response.completed", "response.done":
-			if streamResponse.Response != nil {
-				if streamResponse.Response.Usage != nil {
-					if streamResponse.Response.Usage.InputTokens != 0 {
-						usage.PromptTokens = streamResponse.Response.Usage.InputTokens
+		case "response.completed", "response.done", "response.incomplete", "response.failed", "response.cancelled", "response.canceled":
+			raw := gjson.Get(data, "response.usage")
+			if raw.IsObject() {
+				reported := func(key string) *int {
+					n := raw.Get(key)
+					if n.Type != gjson.Number {
+						return nil
 					}
-					if streamResponse.Response.Usage.OutputTokens != 0 {
-						usage.CompletionTokens = streamResponse.Response.Usage.OutputTokens
-					}
-					if streamResponse.Response.Usage.TotalTokens != 0 {
-						usage.TotalTokens = streamResponse.Response.Usage.TotalTokens
-					}
-					if streamResponse.Response.Usage.InputTokensDetails != nil {
-						usage.PromptTokensDetails.CachedTokens = streamResponse.Response.Usage.InputTokensDetails.CachedTokens
-						usage.PromptTokensDetails.CacheWriteTokens = streamResponse.Response.Usage.InputTokensDetails.CacheWriteTokens
+					v := int(n.Int())
+					return &v
+				}
+				counts = (chatTokenCounts{reported("input_tokens"), reported("output_tokens"), reported("total_tokens")}).merge(counts)
+				if details := raw.Get("output_tokens_details"); details.IsObject() {
+					if err := common.UnmarshalJsonStr(details.Raw, &usage.CompletionTokenDetails); err != nil {
+						sr.Error(err)
+						return
 					}
 				}
+				if details := raw.Get("input_tokens_details"); details.IsObject() {
+					// Overlay reported fields so partial cumulative frames retain prior details.
+					if err := common.UnmarshalJsonStr(details.Raw, &usage.PromptTokensDetails); err != nil {
+						sr.Error(err)
+						return
+					}
+				}
+			}
+		}
+		switch streamResponse.Type {
+		case "response.completed", "response.done":
+			if streamResponse.Response != nil {
 				if !imageCommitted {
 					if relaycommon.IsNonBillableResponsesStatus(streamResponse.Response.Status) {
 						imageCounter.Reset()
@@ -158,7 +175,9 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		}
 	})
 
-	if usage.CompletionTokens == 0 {
+	if counts.completion != nil {
+		usage.CompletionTokens = *counts.completion
+	} else {
 		// 计算输出文本的 token 数量
 		tempStr := responseTextBuilder.String()
 		if len(tempStr) > 0 {
@@ -168,11 +187,16 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		}
 	}
 
-	if usage.PromptTokens == 0 && usage.CompletionTokens != 0 {
+	if counts.prompt != nil {
+		usage.PromptTokens = *counts.prompt
+	} else if usage.CompletionTokens != 0 {
 		usage.PromptTokens = info.GetEstimatePromptTokens()
 	}
 
 	usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+	if counts.total != nil {
+		usage.TotalTokens = *counts.total
+	}
 
 	return usage, nil
 }
