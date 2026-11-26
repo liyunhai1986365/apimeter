@@ -415,10 +415,15 @@ func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
 		return nil, err
 	}
 	if common.RedisEnabled && epochErr == nil {
-		// 冷缓存时用数据库快照初始化；已存在的哈希只刷新 TTL，
-		// 避免快照覆盖 Redis 中已被原子预扣的余额。初始化失败不影响本次读取。
-		if _, cacheErr := cacheInitTokenAtEpoch(*token, epoch); cacheErr != nil {
+		result, cacheErr := cacheInitTokenAtEpoch(*token, epoch)
+		if cacheErr != nil {
 			common.SysLog("failed to init token cache: " + cacheErr.Error())
+		} else if !fromDB && result == 2 {
+			// A legacy hash or a concurrent fill may already hold live debits.
+			if cached, err := cacheGetTokenByKey(key); err == nil && cached.Id == token.Id {
+				token.RemainQuota = cached.RemainQuota
+				token.UsedQuota = cached.UsedQuota
+			}
 		}
 	}
 	return token, nil

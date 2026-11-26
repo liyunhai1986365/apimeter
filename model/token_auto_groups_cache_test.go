@@ -1,12 +1,65 @@
 package model
 
 import (
+	"context"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTokenGroupPolicyColdAndWarmCache(t *testing.T) {
+	truncateTables(t)
+	useUserCacheMiniRedis(t)
+	for _, policy := range []string{`{"type":"ordered","groups":["ch_GPT特价","gemini"]}`, ""} {
+		token := createReserveTestToken(t, 100)
+		token.Group = "ch_GPT特价"
+		token.GroupPolicy = policy
+		require.NoError(t, DB.Save(&token).Error)
+
+		cold, err := GetTokenByKey(token.Key, false)
+		require.NoError(t, err)
+		assert.Equal(t, policy, cold.GroupPolicy)
+		warm, err := cacheGetTokenByKey(token.Key)
+		require.NoError(t, err)
+		assert.Equal(t, token.Group, warm.Group)
+		assert.Equal(t, policy, warm.GroupPolicy)
+	}
+}
+
+func TestLegacyTokenGroupPolicyBackfillPreservesPendingDebit(t *testing.T) {
+	truncateTables(t)
+	useUserCacheMiniRedis(t)
+	ctx := context.Background()
+	token := createReserveTestToken(t, 100)
+	token.Group = "ch_GPT特价"
+	token.GroupPolicy = `{"type":"ordered","groups":["ch_GPT特价","gemini"]}`
+	require.NoError(t, DB.Save(&token).Error)
+	require.NoError(t, cacheSetTokenForTest(token))
+	cacheKey := getTokenCacheKey(token.Key)
+	require.EqualValues(t, 1, common.RDB.HDel(ctx, cacheKey, "GroupPolicy").Val())
+	_, err := cacheGetTokenByKey(token.Key)
+	require.Error(t, err)
+	status, err := cacheApplyTokenQuotaDelta(token.Id, token.Key, -70)
+	require.NoError(t, err)
+	require.Equal(t, cacheQuotaOK, status)
+
+	reloaded, err := GetTokenByKey(token.Key, false)
+	require.NoError(t, err)
+	assert.Equal(t, token.GroupPolicy, reloaded.GroupPolicy)
+	assert.Equal(t, 30, reloaded.RemainQuota)
+	assert.Equal(t, 70, reloaded.UsedQuota)
+
+	stale := token
+	stale.GroupPolicy = ""
+	require.NoError(t, cacheSetTokenForTest(stale))
+	cached, err := cacheGetTokenByKey(token.Key)
+	require.NoError(t, err)
+	assert.Equal(t, token.GroupPolicy, cached.GroupPolicy)
+	assert.Equal(t, 30, cached.RemainQuota)
+	assert.Equal(t, 70, cached.UsedQuota)
+}
 
 func TestTokenAutoGroupsRoundTripThroughRedisHashCache(t *testing.T) {
 	useUserCacheMiniRedis(t)

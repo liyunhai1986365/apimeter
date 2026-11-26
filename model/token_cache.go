@@ -47,13 +47,8 @@ func invalidateTokenCacheForMutation(key string) error {
 	return common.RDB.Del(ctx, getTokenCacheKey(key)).Err()
 }
 
-// cacheInitToken publishes a database snapshot only when no mutation fence is
-// active and the hash is cold. An existing hash only gets its TTL refreshed:
-// its RemainQuota may already be ahead of this snapshot because atomic
-// pre-consume decrements Redis first, so a snapshot must never overwrite any
-// field of a live hash.
-// 返回值：0=被 fence 拦截，1=完成初始化，2=哈希已存在，仅刷新 TTL。
-// epoch must be captured before the database query that produced token.
+// Capture epoch before reading the database. Existing hashes may have pending
+// quota debits. Only backfill absent routing metadata on a matching token.
 func cacheInitTokenAtEpoch(token Token, epoch string) (int, error) {
 	allowIps := ""
 	if token.AllowIps != nil {
@@ -64,7 +59,10 @@ if redis.call('EXISTS', KEYS[2]) == 1 then
   return 0
 end
 if redis.call('EXISTS', KEYS[1]) == 1 then
-  redis.call('EXPIRE', KEYS[1], ARGV[17])
+  if redis.call('HGET', KEYS[1], 'Id') == ARGV[1] then
+    redis.call('HSETNX', KEYS[1], 'GroupPolicy', ARGV[17])
+  end
+  redis.call('EXPIRE', KEYS[1], ARGV[18])
   return 2
 end
 redis.call('HSET', KEYS[1],
@@ -72,8 +70,9 @@ redis.call('HSET', KEYS[1],
   'CreatedTime', ARGV[5], 'AccessedTime', ARGV[6], 'ExpiredTime', ARGV[7],
   'UnlimitedQuota', ARGV[8], 'ModelLimitsEnabled', ARGV[9], 'ModelLimits', ARGV[10],
   'AllowIps', ARGV[11], 'Group', ARGV[12], 'CrossGroupRetry', ARGV[13],
-  'AutoGroups', ARGV[14], 'RemainQuota', ARGV[15], 'UsedQuota', ARGV[16])
-redis.call('EXPIRE', KEYS[1], ARGV[17])
+  'AutoGroups', ARGV[14], 'RemainQuota', ARGV[15], 'UsedQuota', ARGV[16],
+  'GroupPolicy', ARGV[17])
+redis.call('EXPIRE', KEYS[1], ARGV[18])
 return 1`
 
 	return common.RDB.Eval(context.Background(), script, []string{
@@ -85,7 +84,7 @@ return 1`
 		strconv.FormatBool(token.UnlimitedQuota), strconv.FormatBool(token.ModelLimitsEnabled),
 		token.ModelLimits, allowIps, token.Group, strconv.FormatBool(token.CrossGroupRetry),
 		token.AutoGroups, token.RemainQuota, token.UsedQuota,
-		tokenCacheTTLSeconds(), epoch,
+		token.GroupPolicy, tokenCacheTTLSeconds(), epoch,
 	).Int()
 }
 
@@ -95,17 +94,20 @@ func cacheGetTokenByKey(key string) (*Token, error) {
 		return nil, fmt.Errorf("redis is not enabled")
 	}
 	var token Token
-	if err := common.RedisHGetObj(getTokenCacheKey(key), &token); err != nil {
+	cacheKey := getTokenCacheKey(key)
+	fields, err := common.RedisHGetObjFields(cacheKey, &token)
+	if err != nil {
 		return nil, err
 	}
 	if token.ImageQuotaPending > 0 {
-		recoverImageQuota(getTokenCacheKey(key), "token")
+		recoverImageQuota(cacheKey, "token")
 		token = Token{}
-		if err := common.RedisHGetObj(getTokenCacheKey(key), &token); err != nil {
+		fields, err = common.RedisHGetObjFields(cacheKey, &token)
+		if err != nil {
 			return nil, err
 		}
 	}
-	if token.Id <= 0 {
+	if _, hasPolicy := fields["GroupPolicy"]; !hasPolicy || token.Id <= 0 {
 		return nil, fmt.Errorf("token cache is incomplete")
 	}
 	token.Key = key
