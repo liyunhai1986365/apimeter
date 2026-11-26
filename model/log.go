@@ -432,8 +432,8 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		UpstreamRequestId: upstreamRequestId,
 		Other:             otherStr,
 	}
-	err := LOG_DB.Create(log).Error
-	if err != nil {
+	logDB := LOG_DB
+	if err := logDB.Create(log).Error; err != nil {
 		logger.LogError(c, "failed to record log: "+err.Error())
 		return 0
 	}
@@ -456,7 +456,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		})
 	}
 	gopool.Go(func() {
-		if _, err := RecordBillingUsageConsumeLog(log.Id); err != nil {
+		if _, err := recordBillingUsageConsumeLog(logDB, log.Id); err != nil {
 			common.SysLog("failed to record billing usage consume log: " + err.Error())
 		}
 	})

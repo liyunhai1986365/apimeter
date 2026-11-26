@@ -11,6 +11,44 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestSQLiteAssetWriterWaitsOutsideTransaction(t *testing.T) {
+	setupAssetBindingConcurrencyTest(t)
+	if DB.Dialector.Name() != "sqlite" {
+		t.Skip("SQLite uses a single writer")
+	}
+	pool, err := DB.DB()
+	require.NoError(t, err)
+	held, release, done := make(chan struct{}), make(chan struct{}), make(chan error, 1)
+	go func() {
+		done <- assetWriteTransaction(DB, func(*gorm.DB) error {
+			close(held)
+			<-release
+			return nil
+		})
+	}()
+	select {
+	case <-held:
+	case err := <-done:
+		t.Fatalf("could not hold first transaction: %v", err)
+	}
+	defer func() {
+		close(release)
+		require.NoError(t, <-done)
+	}()
+	before := pool.Stats()
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	entered := false
+	err = assetWriteTransaction(DB.WithContext(ctx), func(*gorm.DB) error {
+		entered = true
+		return nil
+	})
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.False(t, entered)
+	require.Equal(t, before.WaitCount, pool.Stats().WaitCount)
+	require.Equal(t, before.OpenConnections, pool.Stats().OpenConnections)
+}
+
 func TestAssetTransactionRestoresMySQLConnection(t *testing.T) {
 	setupAssetBindingConcurrencyTest(t)
 	if DB.Dialector.Name() != "mysql" {

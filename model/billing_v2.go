@@ -286,6 +286,10 @@ func fillBillingUsagePeriod(item *BillingUsageItem) {
 }
 
 func RecordBillingUsageItem(item *BillingUsageItem) error {
+	return recordBillingUsageItem(LOG_DB, item)
+}
+
+func recordBillingUsageItem(db *gorm.DB, item *BillingUsageItem) error {
 	if item == nil {
 		return errors.New("billing usage item is nil")
 	}
@@ -293,7 +297,7 @@ func RecordBillingUsageItem(item *BillingUsageItem) error {
 		return errors.New("user id is required")
 	}
 	fillBillingUsagePeriod(item)
-	return LOG_DB.Create(item).Error
+	return db.Create(item).Error
 }
 
 func fillAccountLedgerPeriod(entry *AccountLedgerEntry) {
@@ -565,18 +569,22 @@ func backfillBillingV2Log(log *Log, balances map[string]int64, result *BillingV2
 // is written; the account ledger is reporting data and must not be on the live
 // request path.
 func RecordBillingUsageConsumeLog(logId int) (bool, error) {
+	return recordBillingUsageConsumeLog(LOG_DB, logId)
+}
+
+func recordBillingUsageConsumeLog(db *gorm.DB, logId int) (bool, error) {
 	if logId <= 0 {
 		return false, nil
 	}
 	var log Log
-	if err := LOG_DB.Where("id = ? AND type = ?", logId, LogTypeConsume).First(&log).Error; err != nil {
+	if err := db.Where("id = ? AND type = ?", logId, LogTypeConsume).First(&log).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil
 		}
 		return false, err
 	}
 	var usageCount int64
-	if err := LOG_DB.Model(&BillingUsageItem{}).Where("log_id = ?", log.Id).Count(&usageCount).Error; err != nil {
+	if err := db.Model(&BillingUsageItem{}).Where("log_id = ?", log.Id).Count(&usageCount).Error; err != nil {
 		return false, err
 	}
 	if usageCount > 0 {
@@ -587,7 +595,7 @@ func RecordBillingUsageConsumeLog(logId int) (bool, error) {
 		return false, nil
 	}
 	usage := billingUsageItemFromLog(&log, other)
-	if err := RecordBillingUsageItem(&usage); err != nil {
+	if err := recordBillingUsageItem(db, &usage); err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
 			return false, nil
 		}

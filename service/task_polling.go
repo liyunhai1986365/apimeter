@@ -73,29 +73,18 @@ func populateTaskInfoUsage(info *relaycommon.TaskInfo, data []byte) {
 		return
 	}
 
-	completionTokens := usage.CompletionTokens
-	if completionTokens <= 0 {
-		completionTokens = usage.OutputTokens
+	info.PromptTokens = usage.PromptTokens
+	if info.PromptTokens <= 0 {
+		info.PromptTokens = max(0, usage.InputTokens)
 	}
-	totalTokens := usage.TotalTokens
-	if totalTokens <= 0 {
-		totalTokens = usage.PromptTokens + completionTokens
+	info.CompletionTokens = usage.CompletionTokens
+	if info.CompletionTokens <= 0 {
+		info.CompletionTokens = max(0, usage.OutputTokens)
 	}
-	if totalTokens <= 0 {
-		totalTokens = usage.InputTokens + usage.OutputTokens
+	info.TotalTokens = usage.TotalTokens
+	if info.TotalTokens <= 0 {
+		info.TotalTokens = info.PromptTokens + info.CompletionTokens
 	}
-	if totalTokens <= 0 {
-		totalTokens = completionTokens
-	}
-	if completionTokens <= 0 && totalTokens > 0 &&
-		usage.PromptTokens <= 0 && usage.InputTokens <= 0 {
-		// Video providers commonly expose only total_tokens. For task billing,
-		// those tokens represent generated output and are evaluated as c.
-		completionTokens = totalTokens
-	}
-
-	info.TotalTokens = totalTokens
-	info.CompletionTokens = completionTokens
 }
 
 func firstTaskUsage(envelope *taskUsageEnvelope) *dto.Usage {

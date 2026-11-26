@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -372,7 +373,11 @@ func TestAssetBindingRevocationRollbackAndRetry(t *testing.T) {
 				alias.Kind, alias.ID = "task", fmt.Sprintf("task-alias-%d", i)
 				bindings = append(bindings, alias)
 			}
-			require.NoError(t, SaveAssetBindings(bindings))
+			// Revocation must cover the entire family, but seeding its aliases
+			// need not fit in a single production write transaction.
+			for batch := range slices.Chunk(bindings, 50) {
+				require.NoError(t, SaveAssetBindings(batch))
+			}
 			var injected error = errors.New("injected storage failure")
 			if retryable {
 				injected = &mysql.MySQLError{Number: 1213, Message: "injected deadlock"}

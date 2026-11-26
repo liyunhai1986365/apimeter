@@ -1232,6 +1232,7 @@ func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
 	setupImageTaskTestDB(t)
 	gin.SetMode(gin.TestMode)
 	service.InitHttpClient()
+	common.LogConsumeEnabled = true
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/images/generations", r.URL.Path)
@@ -1241,9 +1242,29 @@ func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
 	}))
 	defer upstream.Close()
 
+	const userID, tokenID, channelID = 7, 81, 11
+	const initialQuota, reserved = 100000, 123
+	const tokenKey = "async-image-token"
+	require.NoError(t, model.DB.AutoMigrate(&model.User{}, &model.Token{}, &model.Log{}))
+	require.NoError(t, model.DB.Create(&model.User{Id: userID, Username: "async-image", Quota: initialQuota, Status: common.UserStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{Id: tokenID, UserId: userID, Key: tokenKey, RemainQuota: initialQuota, Status: common.TokenStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: channelID, Type: constant.ChannelTypeOpenAI, Name: "async-image", Key: "sk-upstream", BaseURL: &upstream.URL, Status: common.ChannelStatusEnabled}).Error)
+	checkBalances := func(want int) {
+		t.Helper()
+		var user model.User
+		var token model.Token
+		require.NoError(t, model.DB.First(&user, userID).Error)
+		require.NoError(t, model.DB.First(&token, tokenID).Error)
+		require.Equal(t, want, user.Quota)
+		require.Equal(t, want, token.RemainQuota)
+	}
+
 	body := []byte(`{"model":"gpt-image-2","prompt":"cat"}`)
 	info := &relaycommon.RelayInfo{
-		UserId:              7,
+		UserId:              userID,
+		TokenId:             tokenID,
+		TokenKey:            tokenKey,
+		ForcePreConsume:     true,
 		UsingGroup:          "default",
 		OriginModelName:     "gpt-image-2",
 		RelayMode:           relayconstant.RelayModeImagesGenerations,
@@ -1252,11 +1273,11 @@ func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
 		IsAsyncImageRequest: true,
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelType:    constant.ChannelTypeOpenAI,
-			ChannelId:      11,
+			ChannelId:      channelID,
 			ChannelBaseUrl: upstream.URL,
 			ApiKey:         "sk-upstream",
 		},
-		PriceData: types.PriceData{QuotaToPreConsume: 123},
+		PriceData: types.PriceData{QuotaToPreConsume: reserved, ModelRatio: 1, CompletionRatio: 1, GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1}},
 	}
 
 	recorder := httptest.NewRecorder()
@@ -1264,13 +1285,15 @@ func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
-	c.Set(string(constant.ContextKeyChannelId), 11)
+	c.Set(string(constant.ContextKeyChannelId), channelID)
 	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
 	c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
 	storage, err := common.CreateBodyStorage(body)
 	require.NoError(t, err)
 	c.Set(common.KeyBodyStorage, storage)
 
+	require.Nil(t, service.PreConsumeBilling(c, reserved, info))
+	checkBalances(initialQuota - reserved)
 	require.Nil(t, ImageHelper(c, info))
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "queued", gjson.GetBytes(recorder.Body.Bytes(), "state").String())
@@ -1292,6 +1315,15 @@ func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
 	require.NoError(t, model.DB.Where("task_id = ?", taskID).First(&task).Error)
 	require.Empty(t, task.PrivateData.UpstreamTaskID)
 	require.Equal(t, strconv.Itoa(constant.ChannelTypeOpenAI), string(task.Platform))
+	waitForRelayTaskTestWorkers(t)
+	require.True(t, task.ImageQuotaSettled())
+	require.Equal(t, 2, task.Quota)
+	checkBalances(initialQuota - task.Quota)
+	var logs []model.Log
+	require.NoError(t, model.LOG_DB.Where("user_id = ?", userID).Find(&logs).Error)
+	require.Len(t, logs, 1)
+	require.Equal(t, model.LogTypeConsume, logs[0].Type)
+	require.Equal(t, task.Quota, logs[0].Quota)
 }
 
 func TestLocalAsyncImageSettlesActualUsageAfterCompletion(t *testing.T) {

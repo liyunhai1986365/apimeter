@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,10 @@ func setupLogIPRecordTest(t *testing.T) {
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&User{}, &Log{}))
+	pool, err := db.DB()
+	require.NoError(t, err)
+	pool.SetMaxOpenConns(1)
+	require.NoError(t, db.AutoMigrate(&User{}, &Log{}, &BillingUsageItem{}))
 
 	DB = db
 	LOG_DB = db
@@ -71,6 +75,45 @@ func TestRecordConsumeLogOmitsIPWhenUserSettingDisablesIPLog(t *testing.T) {
 	var log Log
 	require.NoError(t, LOG_DB.First(&log, id).Error)
 	require.Empty(t, log.Ip)
+}
+
+func TestRecordConsumeLogWritesUsageToOriginalDatabase(t *testing.T) {
+	setupLogIPRecordTest(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+	original := LOG_DB
+	replacement, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+
+	queryStarted, resume, inserted := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	require.NoError(t, original.Callback().Query().Before("gorm:query").Register("test:pause_log_lookup", func(tx *gorm.DB) {
+		if tx.Statement.Table == "logs" {
+			close(queryStarted)
+			<-resume
+		}
+	}))
+	require.NoError(t, original.Callback().Create().After("gorm:create").Register("test:usage_inserted", func(tx *gorm.DB) {
+		if _, ok := tx.Statement.Dest.(*BillingUsageItem); ok {
+			close(inserted)
+		}
+	}))
+	logID := RecordConsumeLog(newLogIPRecordContext(), 1, RecordConsumeLogParams{Quota: 850})
+	require.NotZero(t, logID)
+	select {
+	case <-queryStarted:
+	case <-time.After(5 * time.Second):
+		close(resume)
+		t.Fatal("background log lookup did not start")
+	}
+	LOG_DB = replacement
+	close(resume)
+	select {
+	case <-inserted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("usage item did not reach original database")
+	}
+	var usage BillingUsageItem
+	require.NoError(t, original.Where("log_id = ?", logID).First(&usage).Error)
+	require.EqualValues(t, 850, usage.SettlementAmount)
 }
 
 func TestCreateErrorLogRecordsIPByDefault(t *testing.T) {

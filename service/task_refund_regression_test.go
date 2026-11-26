@@ -120,6 +120,44 @@ func TestFailedMediaPollRetriesRefund(t *testing.T) {
 	}
 }
 
+func TestFailedVideoRefundAfterSubscriptionDeletion(t *testing.T) {
+	truncate(t)
+	const user, channel, token, sub, reserved = 1, 2, 3, 4, 30000
+	seedUser(t, user, 5000)
+	seedToken(t, token, user, "deleted-sub-video", 100000-reserved)
+	seedChannel(t, channel)
+	seedSubscription(t, sub, user, 100000, reserved)
+	seedChargedAccounting(t, user, channel, token, reserved, 1)
+	task := makeTask(user, channel, reserved, token, BillingSourceSubscription, sub)
+	task.PrivateData.UpstreamTaskID = "remote"
+	require.NoError(t, model.DB.Create(task).Error)
+	stale := *task
+	_, err := model.AdminDeleteUserSubscription(sub)
+	require.NoError(t, err)
+	seedSubscription(t, sub+1, user, 100000, 1200)
+
+	ch, err := model.GetChannelById(channel, true)
+	require.NoError(t, err)
+	adaptor := fakeSunoPollingAdaptor{response: `{"code":"success","data":{"status":"FAILURE","fail_reason":"upstream failed"}}`}
+	for _, row := range []*model.Task{task, &stale} {
+		require.NoError(t, updateVideoSingleTask(t.Context(), adaptor, ch, "remote", map[string]*model.Task{"remote": row}))
+	}
+
+	var saved model.Task
+	require.NoError(t, model.DB.First(&saved, task.ID).Error)
+	require.EqualValues(t, model.TaskStatusFailure, saved.Status)
+	require.Equal(t, "upstream failed", saved.FailReason)
+	require.Zero(t, saved.Quota)
+	require.Equal(t, 100000, getTokenRemainQuota(t, token))
+	require.Equal(t, 5000, getUserQuota(t, user))
+	require.ErrorIs(t, model.DB.First(&model.UserSubscription{}, sub).Error, gorm.ErrRecordNotFound)
+	require.EqualValues(t, 1200, getSubscriptionUsed(t, sub+1))
+	require.EqualValues(t, 1, countLogs(t))
+	log := getLastLog(t)
+	require.Equal(t, model.LogTypeRefund, log.Type)
+	require.Equal(t, reserved, log.Quota)
+}
+
 func TestTaskRefundCommitsBothAccountsOnce(t *testing.T) {
 	for _, source := range []string{BillingSourceWallet, BillingSourceSubscription} {
 		t.Run(source, func(t *testing.T) {

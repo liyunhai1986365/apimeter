@@ -1635,6 +1635,49 @@ func TestSettle_ModelsellWrappedSeedanceUsageRefundsPreConsumeDelta(t *testing.T
 	assert.Equal(t, float64(totalTokens), other["actual_total_tokens"])
 }
 
+func TestVideoTieredSettlementUsesReportedTokenSplit(t *testing.T) {
+	const expr = `len >= 20 ? tier("input", p + 10*c) : tier("output", 10*c)`
+	for _, tc := range []struct {
+		name, usage                      string
+		prompt, completion, total, quota int
+	}{
+		{"explicit", `{"prompt_tokens":20,"completion_tokens":80,"total_tokens":100}`, 20, 80, 100, 820},
+		{"aliases", `{"input_tokens":20,"output_tokens":80}`, 20, 80, 100, 820},
+		{"mixed_alias", `{"input_tokens":20,"completion_tokens":80}`, 20, 80, 100, 820},
+		{"input_only", `{"input_tokens":100}`, 100, 0, 100, 100},
+		{"total_only", `{"total_tokens":100}`, 0, 100, 100, 1000},
+		{"total_and_input", `{"total_tokens":100,"input_tokens":20}`, 20, 80, 100, 820},
+		{"total_and_output", `{"total_tokens":100,"output_tokens":80}`, 20, 80, 100, 820},
+		{"explicit_split_wins", `{"total_tokens":105,"input_tokens":20,"output_tokens":80}`, 20, 80, 105, 820},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			truncate(t)
+			const id, balance, reserved = 37, 10000, 10
+			seedUser(t, id, balance-reserved)
+			seedToken(t, id, id, "video-split", balance-reserved)
+			seedChannel(t, id)
+			task := makeTask(id, id, reserved, id, BillingSourceWallet, 0)
+			task.PrivateData.BillingContext.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+				BillingMode: "tiered_expr", ExprString: expr, ExprHash: billingexpr.ExprHashString(expr),
+				GroupRatio: 1, QuotaPerUnit: 1_000_000,
+			}
+			require.NoError(t, model.DB.Create(task).Error)
+			info := taskInfoFromNewAPIResponse(&model.Task{Data: json.RawMessage(`{"usage":` + tc.usage + `}`)})
+			require.True(t, RecalculateTaskQuotaByTieredExpr(context.Background(), task, info))
+			require.Equal(t, tc.quota, task.Quota)
+			require.Equal(t, balance-tc.quota, getUserQuota(t, id))
+			require.Equal(t, balance-tc.quota, getTokenRemainQuota(t, id))
+			log := getLastLog(t)
+			require.NotNil(t, log)
+			require.Equal(t, tc.prompt, log.PromptTokens)
+			require.Equal(t, tc.completion, log.CompletionTokens)
+			var other map[string]interface{}
+			require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+			require.EqualValues(t, tc.total, other["actual_total_tokens"])
+		})
+	}
+}
+
 func TestTaskInfoFromNewAPIResponseReadsMetadataUsage(t *testing.T) {
 	upstreamTask := &model.Task{
 		TaskID: "task_service_inference_metadata_usage",

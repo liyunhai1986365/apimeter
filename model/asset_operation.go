@@ -23,7 +23,19 @@ const assetTransactionTimeout = 3 * time.Second
 // locks for the usual 50 seconds. This is per borrowed connection, never global.
 const assetMySQLLockWaitSeconds = 2
 
+// SQLite has one writer for the main database. Wait before borrowing a
+// connection, under the caller's operation deadline, not the lock-hold budget.
+var sqliteAssetWriter = make(chan struct{}, 1)
+
 func assetWriteTransaction(db *gorm.DB, write func(*gorm.DB) error) error {
+	if db.Dialector.Name() == common.DatabaseTypeSQLite {
+		select {
+		case sqliteAssetWriter <- struct{}{}:
+			defer func() { <-sqliteAssetWriter }()
+		case <-db.Statement.Context.Done():
+			return db.Statement.Context.Err()
+		}
+	}
 	ctx, cancel := context.WithTimeout(db.Statement.Context, assetTransactionTimeout)
 	defer cancel()
 	db = db.WithContext(ctx)

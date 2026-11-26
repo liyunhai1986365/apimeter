@@ -303,62 +303,50 @@ func recordTaskRefundLog(ctx context.Context, task *model.Task, quota int, reaso
 	})
 }
 
-func taskTieredActualQuota(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) (int, *billingexpr.TieredResult, bool) {
+func RecalculateTaskQuotaByTieredExpr(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) bool {
 	if task == nil || taskResult == nil || task.PrivateData.BillingContext == nil {
-		return 0, nil, false
+		return false
 	}
 	bc := task.PrivateData.BillingContext
 	snap := bc.TieredBillingSnapshot
 	if snap == nil || snap.BillingMode != "tiered_expr" {
-		return 0, nil, false
+		return false
 	}
-	totalTokens := taskResult.TotalTokens
-	if totalTokens <= 0 {
-		totalTokens = taskResult.CompletionTokens
+	prompt, completion, total := max(0, taskResult.PromptTokens), max(0, taskResult.CompletionTokens), taskResult.TotalTokens
+	if total <= 0 {
+		total = prompt + completion
+	} else if completion == 0 {
+		// Video providers that report only a total count generated output.
+		completion = max(0, total-prompt)
+	} else if prompt == 0 {
+		prompt = max(0, total-completion)
 	}
-	if totalTokens <= 0 {
-		return 0, nil, false
+	if total <= 0 {
+		return false
 	}
 	requestInput := billingexpr.RequestInput{}
 	if bc.BillingRequestInput != nil {
 		requestInput = *bc.BillingRequestInput
 	}
 	result, err := billingexpr.ComputeTieredQuotaWithRequest(snap, billingexpr.TokenParams{
-		C: float64(totalTokens),
+		P: float64(prompt), C: float64(completion), Len: float64(prompt),
 	}, requestInput)
 	if err != nil {
 		logger.LogWarn(ctx, fmt.Sprintf("任务 %s 表达式计费结算失败: %s", task.TaskID, err.Error()))
-		return 0, nil, false
-	}
-	return result.ActualQuotaAfterGroup, &result, true
-}
-
-func RecalculateTaskQuotaByTieredExpr(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) bool {
-	actualQuota, tieredResult, ok := taskTieredActualQuota(ctx, task, taskResult)
-	if !ok {
 		return false
 	}
 	reason := "tiered_expr"
-	if tieredResult != nil && tieredResult.MatchedTier != "" {
-		reason = fmt.Sprintf("tiered_expr：tier=%s", tieredResult.MatchedTier)
+	if result.MatchedTier != "" {
+		reason = fmt.Sprintf("tiered_expr：tier=%s", result.MatchedTier)
 	}
-	extraOther := map[string]interface{}{}
-	InjectTieredBillingSnapshotInfo(extraOther, task.PrivateData.BillingContext.TieredBillingSnapshot, tieredResult)
-	totalTokens := taskResult.TotalTokens
-	if totalTokens <= 0 {
-		totalTokens = taskResult.CompletionTokens
+	extraOther := map[string]interface{}{
+		"actual_total_tokens": total, "actual_prompt_tokens": prompt, "actual_completion_tokens": completion,
 	}
-	promptTokens := totalTokens - taskResult.CompletionTokens
-	if promptTokens < 0 {
-		promptTokens = 0
+	InjectTieredBillingSnapshotInfo(extraOther, snap, &result)
+	if result.Clamp != nil {
+		attachQuotaSaturationToOther(extraOther, result.Clamp)
 	}
-	extraOther["actual_total_tokens"] = totalTokens
-	extraOther["actual_prompt_tokens"] = promptTokens
-	extraOther["actual_completion_tokens"] = taskResult.CompletionTokens
-	if tieredResult != nil && tieredResult.Clamp != nil {
-		attachQuotaSaturationToOther(extraOther, tieredResult.Clamp)
-	}
-	recalculateTaskQuota(ctx, task, actualQuota, reason, extraOther)
+	recalculateTaskQuota(ctx, task, result.ActualQuotaAfterGroup, reason, extraOther)
 	return true
 }
 
@@ -639,13 +627,16 @@ func commitTaskQuota(task *model.Task, from model.TaskStatus, finalQuota int, pr
 	delta := finalQuota - before
 	accounts := model.ImageTaskQuotaReservation{
 		UserID: task.UserId, TokenID: task.PrivateData.TokenId, SkipToken: true,
-		RefundUndelivered: task.PrivateData.AsyncImage && task.Status == model.TaskStatusFailure && finalQuota == 0,
 	}
 	if taskIsSubscription(task) {
 		accounts.SubscriptionID = task.PrivateData.SubscriptionId
 	} else {
 		accounts.WalletReserved = before > 0 && !previouslyPublished
 	}
+	// A missing subscription must not block publishing a failure and refunding its token.
+	// Preserve pending refunds on already-published non-image tasks for reconciliation.
+	accounts.RefundUndelivered = task.Status == model.TaskStatusFailure && finalQuota == 0 &&
+		(task.PrivateData.AsyncImage || (accounts.SubscriptionID > 0 && !previouslyPublished))
 	if delta != 0 && accounts.TokenID > 0 {
 		token, err := model.GetTokenById(accounts.TokenID)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
