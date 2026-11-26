@@ -137,6 +137,29 @@ describe('visual billing expression config', () => {
     )
   })
 
+  test('keeps the duration path and default when editing a per-second price', () => {
+    for (const duration of [
+      'param("duration")',
+      '(param("duration") ?? 5)',
+      'param("parameters.duration")',
+      '(param("parameters.duration") ?? 0)',
+    ]) {
+      const state = createPricingEditorState(
+        'magi-2',
+        `tier("base", ${duration} * 0.1 * 1000000)`,
+        ''
+      )
+      assert.equal(state.mode, 'visual')
+      const tier = state.visualConfig!.tiers[0]
+      assert.equal(tier.per_second_unit_cost, 0.1)
+      const edited = editVisualPricing(state, {
+        tiers: [setVisualTierPrice(tier, 'per_second_unit_cost', 0.25)],
+      })
+      assert.equal(edited.billingExpr, `tier("base", ${duration} * 0.25 * 1000000)`)
+      assert.equal(parseTiersFromExpr(edited.billingExpr)[0].perSecondPrice, 0.25)
+    }
+  })
+
   test('round-trips token, request, per-second, and per-request visual prices', () => {
     const expression =
       'param("parameters.resolution") == "1080P" ? tier("1080p", 0.1 * 1000000 + p * 2 + c * 4 + param("parameters.duration") * 0.5 * 1000000 + cr * 0.2 + img * 3) : tier("base", p * 1 + c * 2)'

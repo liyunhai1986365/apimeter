@@ -200,8 +200,11 @@ const BILLING_VAR_REGEX = new RegExp(
     .join('|')})\\s*\\*\\s*(${PRICE_NUMBER_PATTERN})$`
 )
 
+const DURATION_PARAM_PATTERN = 'param\\(\\s*"(?:parameters\\.)?duration"\\s*\\)'
+const DURATION_WITH_DEFAULT_PATTERN =
+  `\\(\\s*${DURATION_PARAM_PATTERN}\\s*\\?\\?\\s*${PRICE_NUMBER_PATTERN}\\s*\\)`
 const PARAM_DURATION_PRICE_REGEX = new RegExp(
-  `^param\\("parameters\\.duration"\\)\\s*\\*\\s*(${PRICE_NUMBER_PATTERN})\\s*\\*\\s*1000000$`
+  `^(${DURATION_PARAM_PATTERN}|${DURATION_WITH_DEFAULT_PATTERN})\\s*\\*\\s*(${PRICE_NUMBER_PATTERN})\\s*\\*\\s*1000000$`
 )
 
 const CONSTANT_REQUEST_PRICE_REGEX = new RegExp(
@@ -301,12 +304,17 @@ export type ParsedTier = {
 // Tier parser
 // ---------------------------------------------------------------------------
 
+export function parseDurationPriceTerm(term: string) {
+  const match = unwrapOuterParens(term).match(PARAM_DURATION_PRICE_REGEX)
+  return match ? { durationExpr: match[1], price: Number(match[2]) } : null
+}
+
 function parsePriceTerm(value: string): { key: string; price: number } | null {
   const term = unwrapOuterParens(value)
   const token = term.match(BILLING_VAR_REGEX)
   if (token) return { key: token[1], price: Number(token[2]) }
-  const duration = term.match(PARAM_DURATION_PRICE_REGEX)
-  if (duration) return { key: 'duration', price: Number(duration[1]) }
+  const duration = parseDurationPriceTerm(term)
+  if (duration) return { key: 'duration', price: duration.price }
   const request = term.match(CONSTANT_REQUEST_PRICE_REGEX)
   if (request) return { key: 'request', price: Number(request[1]) }
   const constant = term.match(QUOTA_SCALED_REQUEST_PRICE_REGEX)

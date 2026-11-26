@@ -29,10 +29,28 @@ function tokenModel(overrides: Partial<PricingModel> = {}): PricingModel {
 }
 
 describe('buildModelCardPriceDisplay', () => {
+  test('shows the magi-2 base price per second and applies the group discount', () => {
+    const display = buildModelCardPriceDisplay(
+      tokenModel({
+        model_name: 'magi-2',
+        billing_mode: 'tiered_expr',
+        billing_expr: 'tier("base", (param("duration") ?? 5) * 0.1 * 1000000)',
+      })
+    )
+    assert.equal(display.kind, 'dynamic')
+    assert.deepEqual(
+      display.entries.map(({ original, current, unitLabel }) => [
+        original, current, unitLabel,
+      ]),
+      [['$0.1', '$0.05', 'second']]
+    )
+  })
+
   test('shows raw complex formulas without advertising incomplete unit prices', () => {
     for (const billingExpr of [
       'tier("base", response("cost") * 1000000)',
       'tier("base", max(p * 2, 1000) + c * 4)',
+      'tier("base", (param("duration") ?? 5) * 0.1 * 1000000 * param("factor"))',
       'tier("base", 45000 + (param("search") == true ? 14000 : 0))',
     ]) {
       const display = buildModelCardPriceDisplay(

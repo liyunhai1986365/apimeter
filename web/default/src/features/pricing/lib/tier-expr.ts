@@ -20,6 +20,7 @@ import {
   BILLING_EXTRA_VARS,
   buildRequestConditionExpr,
   normalizeCondition,
+  parseDurationPriceTerm,
   tryParseRequestCondition,
   type RequestCondition,
 } from './billing-expr'
@@ -262,9 +263,11 @@ function buildTierBodyExpr(tier: VisualTier): string {
       continue
     }
     if (key === 'request') parts.push(`${value} * 1000000`)
-    else if (key === 'duration')
-      parts.push(`param("parameters.duration") * ${value} * 1000000`)
-    else parts.push(`${key} * ${value}`)
+    else if (key === 'duration') {
+      const duration = original && parseDurationPriceTerm(original.expression)
+      const operand = duration?.durationExpr ?? 'param("parameters.duration")'
+      parts.push(`${operand} * ${value} * 1000000`)
+    } else parts.push(`${key} * ${value}`)
   }
   return parts.join(' + ') || '0'
 }
@@ -348,13 +351,9 @@ function parseTierBody(body: string): Partial<VisualTier> | null {
       continue
     }
 
-    match = part.match(
-      new RegExp(
-        `^param\\("parameters\\.duration"\\)\\s*\\*\\s*(${NUMBER_PATTERN})\\s*\\*\\s*1000000$`
-      )
-    )
-    if (match) {
-      if (!addTerm('per_second_unit_cost', Number(match[1]), part)) return null
+    const duration = parseDurationPriceTerm(part)
+    if (duration) {
+      if (!addTerm('per_second_unit_cost', duration.price, part)) return null
       continue
     }
 
