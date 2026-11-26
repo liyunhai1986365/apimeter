@@ -98,6 +98,7 @@ export type CodexCredentialRefreshResponse = {
 export type ProtocolProfileOption = {
   id: string
   name: string
+  family?: string
   media_type: string
   accepted_modes?: string[]
   upstream_modes?: string[]

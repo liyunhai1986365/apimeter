@@ -17,6 +17,7 @@ var profileFS embed.FS
 type Profile struct {
 	ID            string               `yaml:"id"`
 	Name          string               `yaml:"name"`
+	Family        string               `yaml:"family"`
 	MediaType     string               `yaml:"media_type"`
 	AcceptedModes []string             `yaml:"accepted_modes"`
 	UpstreamModes []string             `yaml:"upstream_modes"`

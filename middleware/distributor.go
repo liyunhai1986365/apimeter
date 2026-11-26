@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
@@ -44,6 +45,24 @@ func ConfigurableNativeProfile(profileID string, relayMode int) gin.HandlerFunc 
 		c.Set(ContextKeyConfigurableNativeProfileID, profileID)
 		c.Set(ContextKeyConfigurableNativeProfileIDs, configurableNativeProfileIDs(c, profileID, relayMode))
 		c.Set("relay_mode", relayMode)
+		c.Next()
+	}
+}
+
+// Both SandAI profiles expose the same native paths. The token group chooses the provider.
+func MagiNative(mode string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(relaycommon.MagiNativeModeKey, mode)
+		c.Set(ContextKeyConfigurableNativeProfileID, relaycommon.HiggsfieldMagiProfileID)
+		c.Set(ContextKeyConfigurableNativeProfileIDs, []string{relaycommon.HiggsfieldMagiProfileID, relaycommon.ModelSellMagiProfileID})
+		relayMode := relayconstant.RelayModeVideoSubmit
+		if mode == "status" {
+			relayMode = relayconstant.RelayModeVideoFetchByID
+		}
+		c.Set("relay_mode", relayMode)
+		if scheme, key, ok := strings.Cut(c.GetHeader("Authorization"), " "); ok && strings.EqualFold(scheme, "Key") {
+			c.Request.Header.Set("Authorization", "Bearer "+strings.TrimSpace(key))
+		}
 		c.Next()
 	}
 }
@@ -367,6 +386,9 @@ func getJSONStringValue(result gjson.Result, field string) (string, error) {
 }
 
 func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
+	if mode := c.GetString(relaycommon.MagiNativeModeKey); mode != "" {
+		return &ModelRequest{Model: relaycommon.MagiModel}, mode != "status", nil
+	}
 	var modelRequest ModelRequest
 	shouldSelectChannel := true
 	var err error

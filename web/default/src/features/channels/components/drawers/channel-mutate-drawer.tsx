@@ -80,6 +80,7 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -417,6 +418,7 @@ export function ChannelMutateDrawer({
   const keyMode = form.watch('key_mode')
   const currentGroups = form.watch('group')
   const currentType = form.watch('type')
+  const protocolProfileId = form.watch('protocol_profile_id')
   const currentBaseUrl = form.watch('base_url')
   const currentModels = form.watch('models')
   const currentModelMapping = form.watch('model_mapping')
@@ -467,13 +469,21 @@ export function ChannelMutateDrawer({
 
   const protocolProfileOptions = useMemo(() => {
     const profiles = protocolProfilesData?.data
-    if (profiles?.length) {
-      return profiles.map((profile) => ({
-        label: profile.name || profile.id,
-        value: profile.id,
-      }))
+    const options = profiles?.length
+      ? profiles.map((profile) => ({
+          label: profile.name || profile.id,
+          value: profile.id,
+          family: profile.family,
+        }))
+      : FALLBACK_PROTOCOL_PROFILE_OPTIONS
+    const groups = new Map<string, typeof options>()
+    for (const option of options) {
+      const family = option.family || ''
+      const group = groups.get(family)
+      if (group) group.push(option)
+      else groups.set(family, [option])
     }
-    return FALLBACK_PROTOCOL_PROFILE_OPTIONS
+    return Array.from(groups)
   }, [protocolProfilesData])
 
   // Get prefill groups
@@ -1959,6 +1969,9 @@ export function ChannelMutateDrawer({
                     const keyPlaceholder = (() => {
                       if (isEditing) {
                         return t('Leave empty to keep existing key')
+                      }
+                      if (currentType === 999 && protocolProfileId === 'sandai-higgsfield-magi-2') {
+                        return 'KEY_ID:KEY_SECRET'
                       }
                       if (currentType === 33) {
                         if (awsKeyType === 'api_key') {
@@ -3602,13 +3615,15 @@ export function ChannelMutateDrawer({
                                 <SelectItem value='none'>
                                   {t('Use channel default')}
                                 </SelectItem>
-                                {protocolProfileOptions.map((option) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {t(option.label)}
-                                  </SelectItem>
+                                {protocolProfileOptions.map(([family, options]) => (
+                                  <SelectGroup key={family}>
+                                    {family && <SelectLabel>{family}</SelectLabel>}
+                                    {options.map((option) => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {t(option.label)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
                                 ))}
                               </SelectContent>
                             </Select>

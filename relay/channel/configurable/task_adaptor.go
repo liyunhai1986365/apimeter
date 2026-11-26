@@ -65,6 +65,9 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskError {
+	if a.profile != nil && a.profile.ID == relaycommon.OfficialMagiProfileID {
+		return a.validateSandGeneration(c, info)
+	}
 	if a.isNativeSubmitRequest(c) {
 		req, err := a.parseNativeTaskRequest(c)
 		if err != nil {
@@ -91,6 +94,9 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	}
 	if a.profile != nil && IsYHProfile(a.profile.ID) {
 		validate = validateYHVideoTaskRequest
+	}
+	if a.profile != nil && relaycommon.IsMagiVideoProfile(a.profile.ID) {
+		validate = validateMagiVideo
 	}
 	taskErr := validate(c, info, constant.TaskActionGenerate)
 	if taskErr != nil {
@@ -133,6 +139,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	profile, err := a.requireProfile()
 	if err != nil {
 		return nil, err
+	}
+	if profile.ID == relaycommon.OfficialMagiProfileID {
+		return buildSandGenerationBody(c, info, a.selectedSubmitPath)
 	}
 	if a.isNativeSubmitRequest(c) && profile.videoNative().Submit.Passthrough {
 		var body json.RawMessage
@@ -266,7 +275,19 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 		return "", nil, taskErr
 	}
 
-	if a.isNativeSubmitRequest(c) {
+	if profile.ID == relaycommon.OfficialMagiProfileID && isSandSubmitPath(c.Request.URL.Path) {
+		body, err := common.Marshal(map[string]string{"id": publicTaskID(info)})
+		if err != nil {
+			return "", nil, service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
+		}
+		c.Set(NativeTaskSubmitResponseKey, body)
+	} else if c.GetString(relaycommon.MagiNativeModeKey) != "" && relaycommon.IsMagiVideoProfile(profile.ID) {
+		body, err := MagiTaskResponse(&model.Task{TaskID: publicTaskID(info), Status: model.TaskStatusQueued})
+		if err != nil {
+			return "", nil, service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
+		}
+		c.Set(NativeTaskSubmitResponseKey, body)
+	} else if a.isNativeSubmitRequest(c) {
 		if isVolcengineVideoTaskSubmitEndpoint(profile.videoNative().Submit.Path) ||
 			strings.EqualFold(strings.TrimSpace(profile.videoNative().Submit.ResponseFormat), "volcengine_video_task_create") {
 			nativeResponse, err := BuildVolcengineVideoTaskCreateResponse(taskID)
@@ -295,7 +316,11 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 		if err != nil {
 			return "", nil, service.TaskErrorWrapper(err, "build_openai_video_response_failed", http.StatusInternalServerError)
 		}
-		c.Data(http.StatusOK, "application/json", ovBody)
+		if relaycommon.IsMagiVideoProfile(profile.ID) {
+			c.Set(NativeTaskSubmitResponseKey, ovBody)
+		} else {
+			c.Data(http.StatusOK, "application/json", ovBody)
+		}
 	}
 	return taskID, responseBody, nil
 }
@@ -536,7 +561,7 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	video.ID = originTask.TaskID
 	video.Model = originTask.Properties.OriginModelName
 	video.Status = configurableVideoStatus(originTask.Status)
-	if profile != nil && relaycommon.IsSeedanceVideoProfile(profile.ID) && originTask.Status == model.TaskStatusNotStart {
+	if profile != nil && (relaycommon.IsSeedanceVideoProfile(profile.ID) || profile.ID == relaycommon.OfficialMagiProfileID) && originTask.Status == model.TaskStatusNotStart {
 		video.Status = dto.VideoStatusQueued
 	}
 	video.SetProgressStr(originTask.Progress)
@@ -598,6 +623,7 @@ var commonVideoResultURLPaths = []string{
 	"video_url",
 	"url",
 	"output.video_url",
+	"output.videoUrl",
 	"output.url",
 	"output.video.url",
 	"output.results.0.url",
@@ -689,6 +715,12 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	profile, err := a.requireProfile()
 	if err != nil {
 		return nil, err
+	}
+	if profile.ID == relaycommon.OfficialMagiProfileID {
+		if !gjson.ValidBytes(upstream) || gjson.GetBytes(upstream, "id").String() != originTask.GetUpstreamTaskID() {
+			return nil, fmt.Errorf("invalid Sand AI generation response")
+		}
+		return sjson.SetBytes(upstream, "id", originTask.TaskID)
 	}
 	if profile.ID == "seedance-yh" {
 		return BuildYHVideoTaskResponse(originTask, upstream)

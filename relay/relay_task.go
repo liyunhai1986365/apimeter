@@ -3,9 +3,11 @@ package relay
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -154,6 +157,16 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 // 控制器负责 defer Refund 和成功后 Settle。
 func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitResult, *dto.TaskError) {
 	info.InitChannelMeta(c)
+	officialSand := info.ChannelType == constant.ChannelTypeConfigurable && info.ChannelSetting.Protocol != nil &&
+		info.ChannelSetting.Protocol.ProfileID == relaycommon.OfficialMagiProfileID
+	sandEntry := c.GetString("configurable_native_profile_id") == relaycommon.OfficialMagiProfileID
+	if sandEntry && !officialSand {
+		return nil, service.TaskErrorWrapperLocal(errors.New("selected channel does not support the Sand AI API"), "invalid_channel", http.StatusBadRequest)
+	}
+	if c.GetString(relaycommon.MagiNativeModeKey) != "" && (info.ChannelType != constant.ChannelTypeConfigurable ||
+		info.ChannelSetting.Protocol == nil || officialSand || !relaycommon.IsMagiVideoProfile(info.ChannelSetting.Protocol.ProfileID)) {
+		return nil, service.TaskErrorWrapperLocal(errors.New("selected channel does not support the MAGI-2 protocol"), "invalid_channel", http.StatusBadRequest)
+	}
 
 	// 1. 确定 platform → 创建适配器 → 验证请求
 	platform := constant.TaskPlatform(c.GetString("platform"))
@@ -191,7 +204,16 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	// 3. 预生成公开 task ID（仅首次）
 	if info.PublicTaskID == "" {
-		info.PublicTaskID = model.GenerateTaskID()
+		if sandEntry {
+			// The Sand API contract uses a positive decimal int64 string.
+			id, err := rand.Int(rand.Reader, big.NewInt(1<<63-1))
+			if err != nil {
+				return nil, service.TaskErrorWrapperLocal(err, "generate_task_id_failed", http.StatusInternalServerError)
+			}
+			info.PublicTaskID = strconv.FormatInt(id.Int64()+1, 10)
+		} else {
+			info.PublicTaskID = model.GenerateTaskID()
+		}
 	}
 
 	// 4. 价格计算：基础模型价格
@@ -246,7 +268,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 	seedance := info.ChannelType == constant.ChannelTypeVolcEngine || info.ChannelType == constant.ChannelTypeDoubaoVideo ||
 		(info.ChannelType == constant.ChannelTypeConfigurable && info.ChannelSetting.Protocol != nil && relaycommon.IsSeedanceVideoProfile(info.ChannelSetting.Protocol.ProfileID))
-	if seedance && resp != nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	magi := info.ChannelType == constant.ChannelTypeConfigurable && info.ChannelSetting.Protocol != nil &&
+		relaycommon.IsMagiVideoProfile(info.ChannelSetting.Protocol.ProfileID)
+	if (seedance || magi) && resp != nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		c.Set(TaskSubmitAcceptedKey, true)
 	}
 	if resp != nil && resp.Body != nil {
@@ -431,11 +455,26 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		return
 	}
 	if !exist {
+		if c.GetString("configurable_native_profile_id") == relaycommon.OfficialMagiProfileID {
+			return nil, service.TaskErrorWrapperLocal(errors.New("generation not found"), "generation_not_found", http.StatusNotFound)
+		}
 		taskResp = service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
 		return
 	}
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
+	sandEntry := c.GetString("configurable_native_profile_id") == relaycommon.OfficialMagiProfileID
+	if sandEntry {
+		if c.GetInt("token_id") <= 0 || originTask.TokenId != c.GetInt("token_id") || originTask.PrivateData.MagiProfileID != relaycommon.OfficialMagiProfileID {
+			return nil, service.TaskErrorWrapperLocal(errors.New("generation not found"), "generation_not_found", http.StatusNotFound)
+		}
+		c.Header("Cache-Control", "no-store")
+	} else if originTask.PrivateData.MagiProfileID == relaycommon.OfficialMagiProfileID && c.GetString("configurable_native_profile_id") != "" {
+		return nil, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusNotFound)
+	}
+	if c.GetString(relaycommon.MagiNativeModeKey) == "status" {
+		return magiNativeTaskStatus(c, originTask)
+	}
 
 	// Native Ark task queries must use the official response shape regardless of
 	// whether the selected channel is configurable or direct Doubao/VolcEngine.
@@ -448,7 +487,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	if fetchErr, ok := c.Get("seedance_native_fetch_error"); ok {
 		return nil, fetchErr.(*dto.TaskError)
 	}
-	if service.IsVolcengineVideoTaskQueryRequest(c) {
+	if sandEntry || service.IsVolcengineVideoTaskQueryRequest(c) {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("native task response unavailable"), "get_task_failed", http.StatusBadGateway)
 	}
 	if realtimeResp := tryRealtimeFetch(c.Request.Context(), originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
@@ -485,6 +524,39 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 	}
 	return
+}
+
+func magiNativeTaskStatus(c *gin.Context, task *model.Task) ([]byte, *dto.TaskError) {
+	if c.GetInt("token_id") <= 0 || task.TokenId != c.GetInt("token_id") {
+		return nil, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
+	}
+	ch, err := model.RequirePlatformChannel(model.GetChannelById(task.ChannelId, true))
+	if err != nil || ch.Type != constant.ChannelTypeConfigurable {
+		return nil, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
+	}
+	protocol := ch.GetSetting().Protocol
+	if protocol == nil || !relaycommon.IsMagiVideoProfile(protocol.ProfileID) ||
+		(task.PrivateData.MagiProfileID != "" && task.PrivateData.MagiProfileID != protocol.ProfileID) ||
+		(task.PrivateData.MagiProfileID == "" && gjson.GetBytes(task.Data, "request_id").String() != task.GetUpstreamTaskID()) {
+		return nil, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
+	}
+	if task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+		tryConfigurableFetch(c, task, false)
+		if !c.GetBool("magi_status_polled") {
+			return nil, service.TaskErrorWrapperLocal(errors.New("upstream task status unavailable"), "upstream_query_failed", http.StatusBadGateway)
+		}
+		// A concurrent poll can win the status update. Report the committed state.
+		saved, ok, err := model.GetByTaskId(task.UserId, task.TaskID)
+		if err != nil || !ok {
+			return nil, service.TaskErrorWrapperLocal(errors.New("cannot read task status"), "get_task_failed", http.StatusInternalServerError)
+		}
+		task = saved
+	}
+	body, err := configurable.MagiTaskResponse(task)
+	if err != nil {
+		return nil, service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
+	}
+	return body, nil
 }
 
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。
@@ -606,6 +678,14 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		return nil
 	}
 	channelModel, err := model.RequirePlatformChannel(model.GetChannelById(task.ChannelId, true))
+	sand := task.PrivateData.MagiProfileID == relaycommon.OfficialMagiProfileID
+	if sand {
+		if err != nil || channelModel.Type != constant.ChannelTypeConfigurable || channelModel.GetSetting().Protocol == nil ||
+			channelModel.GetSetting().Protocol.ProfileID != relaycommon.OfficialMagiProfileID {
+			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(errors.New("original Sand AI channel unavailable"), "upstream_query_failed", http.StatusBadGateway))
+			return nil
+		}
+	}
 	if err != nil {
 		return nil
 	}
@@ -623,7 +703,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	// Task integrity follows the provider protocol, not the client's URL or
 	// response format. Generic queries mutate the same task as native queries.
 	settings := channelModel.GetSetting()
-	protectSeedance := service.IsVolcengineVideoTaskQueryRequest(c) || isDirectVolcEngine ||
+	protectSeedance := sand || service.IsVolcengineVideoTaskQueryRequest(c) || isDirectVolcEngine ||
 		(isConfigurable && settings.Protocol != nil && relaycommon.IsSeedanceVideoProfile(settings.Protocol.ProfileID))
 	baseURL := channelModel.GetBaseURL()
 	proxy := channelModel.GetSetting().Proxy
@@ -644,15 +724,20 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	if task.PrivateData.Key != "" {
 		key = task.PrivateData.Key
 	}
+	sandArk := task.PrivateData.SandArk
+	if sand && returnNativeBody {
+		sandArk = strings.HasPrefix(c.Request.URL.Path, relaycommon.SandArkTasksPath+"/")
+	}
 	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
-		"task_id": task.GetUpstreamTaskID(),
-		"action":  task.Action,
+		"task_id":  task.GetUpstreamTaskID(),
+		"action":   task.Action,
+		"sand_ark": sandArk,
 	}, proxy)
 	if err != nil || resp == nil {
 		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
 		}
-		if protectSeedance && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+		if sand || protectSeedance && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
 			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("upstream query unavailable"), "upstream_query_failed", http.StatusBadGateway))
 			return nil
 		}
@@ -661,7 +746,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		if protectSeedance {
-			if resp.StatusCode >= 500 && (task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure) {
+			if !sand && resp.StatusCode >= 500 && (task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure) {
 				c.Header("X-Oneapi-Task-Cache", "terminal")
 				return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 			}
@@ -680,7 +765,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		if protectSeedance && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+		if sand || protectSeedance && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
 			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("incomplete upstream query response"), "upstream_query_failed", http.StatusBadGateway))
 			return nil
 		}
@@ -696,6 +781,11 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	}
 
 	ti, err := adaptor.ParseTaskResult(body)
+	magiNative := c.GetString(relaycommon.MagiNativeModeKey) == "status"
+	if magiNative && (err != nil || ti == nil || ti.TaskID != task.GetUpstreamTaskID() || !gjson.ValidBytes(body) ||
+		ti.Status == "" || ti.Status == string(model.TaskStatusUnknown) || (ti.Status == string(model.TaskStatusSuccess) && ti.Url == "")) {
+		return nil
+	}
 	if protectSeedance {
 		if identityErr := relaycommon.ValidateSeedanceTaskIdentityForAdaptor(adaptor, body, ti, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); identityErr != nil {
 			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(identityErr, "upstream_query_failed", http.StatusBadGateway))
@@ -769,6 +859,9 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		reloadConcurrent := false
 		if changed {
 			won, updateErr := service.PersistPolledTask(c.Request.Context(), task, snap.Status)
+			if magiNative && updateErr != nil {
+				return nil
+			}
 			if protectSeedance && updateErr != nil {
 				c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("failed to persist task query result"), "task_persistence_failed", http.StatusInternalServerError))
 				return nil
@@ -791,8 +884,17 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 				return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 			}
 		}
+		if magiNative {
+			c.Set("magi_status_polled", true)
+		}
 	}
 	if !returnNativeBody {
+		if sand && task.Status == model.TaskStatusSuccess && ti != nil && ti.Status == string(task.Status) {
+			// Signed URLs can change or be withdrawn without a billing transition.
+			// Use this poll's result for the OpenAI response.
+			task.Data = body
+			task.PrivateData.ResultURL = ti.Url
+		}
 		return nil
 	}
 	if converter, ok := adaptor.(interface {

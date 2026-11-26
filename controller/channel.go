@@ -60,6 +60,7 @@ type OpenAIModelsResponse struct {
 type ConfigurableProtocolProfileOption struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name"`
+	Family        string   `json:"family,omitempty"`
 	MediaType     string   `json:"media_type"`
 	AcceptedModes []string `json:"accepted_modes"`
 	UpstreamModes []string `json:"upstream_modes"`
@@ -342,6 +343,7 @@ func GetConfigurableProtocolProfiles(c *gin.Context) {
 		options = append(options, ConfigurableProtocolProfileOption{
 			ID:            profile.ID,
 			Name:          profile.Name,
+			Family:        profile.Family,
 			MediaType:     profile.MediaType,
 			AcceptedModes: append([]string(nil), profile.AcceptedModes...),
 			UpstreamModes: append([]string(nil), profile.UpstreamModes...),

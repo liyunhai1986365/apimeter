@@ -68,6 +68,10 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 				visit(item, depth+1, media)
 				return true
 			}
+			// Native Sand references support the decimal ID directly as well as asset:// URLs.
+			if media && key.String() == "assetId" && c.Request.URL.Path == relaycommon.SandGenerationsPath {
+				ids = append(ids, item.String())
+			}
 			// Inspect media fields, including nested/form metadata. Ordinary
 			// labels and negative prompts can legitimately contain URI text.
 			childMedia := false

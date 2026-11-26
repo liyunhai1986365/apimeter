@@ -22,6 +22,7 @@
 # tasks and cannot enforce gateway user ownership through this YAML alone.
 # Profiles are embedded at build time; rebuild/restart to make this selectable.
 id: doubao-seedance-max-service-inference
+family: Seedance
 name: Doubao Seedance Max Service Inference
 media_type: video
 accepted_modes:

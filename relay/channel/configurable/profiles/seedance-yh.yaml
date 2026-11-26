@@ -1,5 +1,6 @@
 # YH REST API. Native callers use the official Seedance/Ark contracts.
 id: seedance-yh
+family: Seedance
 name: Seedance YH Video and Assets
 media_type: video
 accepted_modes:

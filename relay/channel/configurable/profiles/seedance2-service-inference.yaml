@@ -14,6 +14,7 @@
 # Task-list proxying and upstream response-header forwarding require gateway
 # code support. Do not proxy the shared upstream account's task list directly.
 id: seedance2-service-inference
+family: Seedance
 name: Seedance2 Service Inference
 media_type: video
 accepted_modes:

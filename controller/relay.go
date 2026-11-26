@@ -1079,6 +1079,9 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
+		if task.PrivateData.MagiProfileID == relaycommon.OfficialMagiProfileID {
+			task.PrivateData.SandArk = c.GetBool("sand_ark")
+		}
 		// A failed YH attempt can leave its marker in the shared retry context.
 		// Only persist it when the final successful channel also uses YH.
 		if relayInfo.ChannelType == constant.ChannelTypeConfigurable &&
@@ -1091,7 +1094,7 @@ func RelayTask(c *gin.Context) {
 			(relayInfo.ChannelType == constant.ChannelTypeConfigurable && relayInfo.ChannelSetting.Protocol != nil && relaycommon.IsSeedanceVideoProfile(relayInfo.ChannelSetting.Protocol.ProfileID))
 		// Persist the upstream's official ID for generic submissions too. Lookup
 		// and pending-response validation must not depend on the client format.
-		if seedance || nativeResponse {
+		if seedance || (nativeResponse && task.PrivateData.MagiProfileID == "") {
 			officialID := gjson.GetBytes(result.TaskData, "upstream_task_id")
 			if officialID.Type == gjson.String && strings.HasPrefix(officialID.String(), "cgt-") {
 				task.PrivateData.OfficialTaskID = officialID.String()
@@ -1138,7 +1141,12 @@ func RelayTask(c *gin.Context) {
 				taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("upstream task %s accepted but local persistence failed; do not resubmit", result.UpstreamTaskID), "task_persistence_failed", http.StatusInternalServerError)
 			}
 		} else if pending, ok := c.Get(configurable.NativeTaskSubmitResponseKey); ok {
-			c.Data(http.StatusOK, "application/json", pending.([]byte))
+			status := http.StatusOK
+			if task.PrivateData.MagiProfileID == relaycommon.OfficialMagiProfileID && c.Request.URL.Path == relaycommon.SandGenerationsPath {
+				status = http.StatusAccepted
+				c.Header("Location", relaycommon.SandGenerationsPath+"/"+task.TaskID)
+			}
+			c.Data(status, "application/json", pending.([]byte))
 		}
 	}
 

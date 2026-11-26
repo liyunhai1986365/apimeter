@@ -1,0 +1,46 @@
+id: sandai-official-magi-2
+family: SandAI
+name: Sand AI · MAGI-2
+media_type: video
+accepted_modes: [openai.video.generations]
+upstream_modes: [sandai.generations, sandai.ark.generations]
+video:
+  native:
+    submit:
+      method: POST
+      path: /v2/generations
+      passthrough: true
+      request:
+        fields:
+          - {to: model, from: body.model}
+      response:
+        passthrough: true
+    fetch:
+      method: GET
+      path: /v2/generations/{task_id}
+      response:
+        passthrough: true
+  submit:
+    method: POST
+    path: /v2/generations
+    response:
+      task_id_path: id
+  fetch:
+    method: GET
+    path: /v2/generations/{task_id}
+    path_variants:
+      - {path: '/compatible/ark/api/v3/contents/generations/tasks/{task_id}', field: sand_ark, equals: true}
+    response:
+      task_id_path: id
+      status_path: status
+      result_url_path: output.videoUrl
+      reason_path: error.message
+      status_map:
+        queued: QUEUED
+        processing: IN_PROGRESS
+        running: IN_PROGRESS
+        succeeded: SUCCESS
+        failed: FAILURE
+        canceled: FAILURE
+        cancelled: FAILURE
+        expired: FAILURE

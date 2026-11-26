@@ -6,6 +6,7 @@ import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 
 	"github.com/gin-gonic/gin"
@@ -45,6 +46,12 @@ func SetVideoRouter(router *gin.Engine) {
 	}
 
 	router.GET("/api/v3/contents/generations/tasks", middleware.RouteTag("relay"), middleware.TokenAuth(), controller.ListYHVideoTasks)
+	for _, mode := range []string{"text-to-video", "image-to-video", "reference-to-video"} {
+		router.POST("/sand/magi-2/"+mode, middleware.RouteTag("relay"), middleware.MagiNative(mode), middleware.TokenAuth(), middleware.Distribute(), controller.RelayTask)
+	}
+	router.GET("/requests/:task_id/status", middleware.RouteTag("relay"), middleware.MagiNative("status"), middleware.TokenAuth(), middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
+	router.POST(relaycommon.SandArkTasksPath, middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(relaycommon.OfficialMagiProfileID, relayconstant.RelayModeVideoSubmit), middleware.TokenAuth(), middleware.Distribute(), controller.RelayTask)
+	router.GET(relaycommon.SandArkTasksPath+"/:task_id", middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(relaycommon.OfficialMagiProfileID, relayconstant.RelayModeVideoFetchByID), middleware.TokenAuth(), middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
 	registerConfigurableNativeRoutes(router)
 
 	klingV2Router := router.Group("/kling/v2")

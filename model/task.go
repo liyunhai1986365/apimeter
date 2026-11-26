@@ -113,6 +113,8 @@ func (m Properties) Value() (driver.Value, error) {
 }
 
 type TaskPrivateData struct {
+	MagiProfileID  string `json:"magi_profile_id,omitempty"`
+	SandArk        bool   `json:"sand_ark,omitempty"`
 	SeedanceDraft  bool   `json:"seedance_draft,omitempty"`
 	YHServiceTier  string `json:"yh_service_tier,omitempty"`
 	OfficialTaskID string `json:"official_task_id,omitempty"` // 火山原始 ID；中转供应商查询仍使用 UpstreamTaskID
@@ -322,11 +324,17 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVertexAi ||
 			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVolcEngine ||
 			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeDoubaoVideo ||
-			(relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeConfigurable && relayInfo.ChannelMeta.ChannelSetting.Protocol != nil && commonRelay.IsSeedanceVideoProfile(relayInfo.ChannelMeta.ChannelSetting.Protocol.ProfileID)) {
+			(relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeConfigurable && relayInfo.ChannelMeta.ChannelSetting.Protocol != nil &&
+				(commonRelay.IsSeedanceVideoProfile(relayInfo.ChannelMeta.ChannelSetting.Protocol.ProfileID) ||
+					commonRelay.IsMagiVideoProfile(relayInfo.ChannelMeta.ChannelSetting.Protocol.ProfileID))) {
 			privateData.Key = relayInfo.ChannelMeta.ApiKey
 		}
 		if relayInfo.UpstreamModelName != "" {
 			properties.UpstreamModelName = relayInfo.UpstreamModelName
+		}
+		if relayInfo.ChannelType == constant.ChannelTypeConfigurable && relayInfo.ChannelSetting.Protocol != nil &&
+			commonRelay.IsMagiVideoProfile(relayInfo.ChannelSetting.Protocol.ProfileID) {
+			privateData.MagiProfileID = relayInfo.ChannelSetting.Protocol.ProfileID
 		}
 		if relayInfo.OriginModelName != "" {
 			properties.OriginModelName = relayInfo.OriginModelName

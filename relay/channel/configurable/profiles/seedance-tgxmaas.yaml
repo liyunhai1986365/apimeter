@@ -1,6 +1,7 @@
 # TgxMaas protocol, not the direct Volcengine AK/SK assets API.
 # Base URL: https://api.sctgx.cn (no /doubao suffix).
 id: seedance-tgxmaas
+family: Seedance
 name: Seedance TgxMaas Video and Assets
 media_type: video
 accepted_modes:

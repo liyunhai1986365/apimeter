@@ -834,9 +834,13 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		return fmt.Errorf("task %s does not belong to channel %d", taskId, ch.Id)
 	}
 	settings := ch.GetSetting()
+	sand := task.PrivateData.MagiProfileID == relaycommon.OfficialMagiProfileID
+	if sand && (ch.Type != constant.ChannelTypeConfigurable || settings.Protocol == nil || settings.Protocol.ProfileID != relaycommon.OfficialMagiProfileID) {
+		return fmt.Errorf("original Sand AI channel unavailable")
+	}
 	seedance := ch.Type == constant.ChannelTypeVolcEngine || ch.Type == constant.ChannelTypeDoubaoVideo ||
 		(ch.Type == constant.ChannelTypeConfigurable && settings.Protocol != nil && relaycommon.IsSeedanceVideoProfile(settings.Protocol.ProfileID))
-	if seedance && (task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure) {
+	if (seedance || sand) && (task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure) {
 		return nil
 	}
 	key := ch.Key
@@ -846,8 +850,9 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		key = privateData.Key
 	}
 	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
-		"task_id": task.GetUpstreamTaskID(),
-		"action":  task.Action,
+		"task_id":  task.GetUpstreamTaskID(),
+		"action":   task.Action,
+		"sand_ark": task.PrivateData.SandArk,
 	}, proxy)
 	if err != nil {
 		if resp != nil && resp.Body != nil {
@@ -871,7 +876,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	taskResult := &relaycommon.TaskInfo{}
 	// try parse as New API response format
 	var responseItems taskdto.TaskResponse[model.Task]
-	if seedance {
+	if seedance || sand {
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 || !gjson.ValidBytes(responseBody) {
 			return fmt.Errorf("Seedance upstream query unavailable (HTTP %d)", resp.StatusCode)
 		}
@@ -899,7 +904,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)
 	}
 
-	if seedance {
+	if seedance || sand {
 		task.Data = responseBody
 	} else {
 		task.Data = redactVideoResponseBody(responseBody)

@@ -103,7 +103,26 @@ export const CONVERSION_OPTIONS = [
   },
 ]
 
-export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
+export const FALLBACK_PROTOCOL_PROFILE_OPTIONS: {
+  label: string
+  value: string
+  family?: string
+}[] = [
+  {
+    family: 'SandAI',
+    label: 'Sand AI · MAGI-2',
+    value: 'sandai-official-magi-2',
+  },
+  {
+    family: 'SandAI',
+    label: 'Higgsfield · MAGI-2',
+    value: 'sandai-higgsfield-magi-2',
+  },
+  {
+    family: 'SandAI',
+    label: 'ModelSell · MAGI-2',
+    value: 'sandai-modelsell-magi-2',
+  },
   {
     label: 'DashScope Wan3 Video',
     value: 'dashscope-wan3-video',
@@ -118,22 +137,27 @@ export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
   },
   {
     label: 'Doubao Seedance 2.0',
+    family: 'Seedance',
     value: 'doubao-seedance-2',
   },
   {
     label: 'Doubao Seedance 2.0 API Assets',
+    family: 'Seedance',
     value: 'doubao-seedance-2-api-assets',
   },
   {
     label: 'Seedance2 Service Inference',
+    family: 'Seedance',
     value: 'seedance2-service-inference',
   },
   {
     label: 'Seedance2 Ark Task Assets',
+    family: 'Seedance',
     value: 'seedance2-ark-task-assets',
   },
   {
     label: 'Seedance 2.0 Modelsell',
+    family: 'Seedance',
     value: 'seedance2-modelsell',
   },
   {

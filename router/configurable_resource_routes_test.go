@@ -137,6 +137,14 @@ func TestConfigurableResourceRoutesAreRegisteredWithFullAPIRouterOrder(t *testin
 	}
 
 	assertRouteRegistered(http.MethodPost, "/api/assets/upload")
+	assertRouteRegistered(http.MethodPost, "/sand/magi-2/text-to-video")
+	assertRouteRegistered(http.MethodPost, "/sand/magi-2/image-to-video")
+	assertRouteRegistered(http.MethodPost, "/sand/magi-2/reference-to-video")
+	assertRouteRegistered(http.MethodGet, "/requests/:task_id/status")
+	assertRouteRegistered(http.MethodPost, "/v2/generations")
+	assertRouteRegistered(http.MethodGet, "/v2/generations/:task_id")
+	assertRouteRegistered(http.MethodPost, "/compatible/ark/api/v3/contents/generations/tasks")
+	assertRouteRegistered(http.MethodGet, "/compatible/ark/api/v3/contents/generations/tasks/:task_id")
 	assertRouteRegistered(http.MethodPost, "/api/volcengine_asset")
 	assertRouteRegistered(http.MethodPost, "/api/assets")
 	assertRouteRegistered(http.MethodGet, "/api/assets")
