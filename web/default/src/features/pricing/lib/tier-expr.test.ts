@@ -393,6 +393,34 @@ describe('parseTiersFromExpr', () => {
     )
   })
 
+  test('uses the same cache write duration across GPT context tiers', () => {
+    const tiers = parseTiersFromExpr(
+      'len <= 272000 ? tier("standard", p * 8 + c * 40 + cr * 0.4 + cc * 10 + cc12h * 20) : tier("long_context", p * 16 + c * 60 + cr * 0.8 + cc * 10)'
+    )
+    const rows = buildDynamicTierPriceDisplayRows(tiers, { tokenUnit: 'M' })
+    assert.deepEqual(
+      rows.map((row) => row.cacheWriteEntries.map((e) => [e.shortLabel, e.value])),
+      [
+        [['Cache Write (30m)', 10], ['Cache Write (12h)', 20]],
+        [['Cache Write (30m)', 10]],
+      ]
+    )
+  })
+
+  test('distinguishes explicit free cache writes from absent duration prices', () => {
+    for (const [body, labels] of [
+      ['cc * 0', ['Cache Write']],
+      ['cc * 0 + cc12h * 0', ['Cache Write (30m)', 'Cache Write (12h)']],
+      ['cc12h * 0', ['Cache Write (12h)']],
+      ['cc * 0 + cc1h * 0', ['Cache Write (5m)', 'Cache Write (1h)']],
+      ['cc * 0 + cc1h * 0 + cc12h * 0', ['Cache Write', 'Cache Write (1h)', 'Cache Write (12h)']],
+    ] as const) {
+      const [tier] = parseTiersFromExpr(`tier("base", ${body})`)
+      const entries = getDynamicPriceEntries(tier, { tokenUnit: 'M' })
+      assert.deepEqual(entries.map((entry) => entry.shortLabel), labels)
+    }
+  })
+
   test('splits cache write dynamic pricing entries for vertical display', () => {
     const tiers = parseTiersFromExpr(
       'tier("base", p * 3 + c * 15 + cr * 0.3 + cc * 3.75 + cc1h * 6)'

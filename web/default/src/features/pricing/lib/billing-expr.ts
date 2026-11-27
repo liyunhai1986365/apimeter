@@ -297,6 +297,7 @@ export type TierCondition = {
 export type ParsedTier = {
   label: string
   conditions: (TierCondition | ExpressionCondition)[]
+  cacheWriteDuration?: '30m' | '5m'
   [field: string]: unknown
 }
 
@@ -476,7 +477,19 @@ export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
       return true
     }
     const split = splitBillingExprAndRequestRules(body)
-    return collect(split.billingExpr, []) ? tiers : []
+    if (!collect(split.billingExpr, [])) return []
+
+    // Settlement splits cache writes using the variables in the entire expression.
+    const has12h = tiers.some((tier) => tier.cacheCreate12hPrice != null)
+    const has1h = tiers.some((tier) => tier.cacheCreate1hPrice != null)
+    if (has12h !== has1h) {
+      for (const tier of tiers) {
+        if (tier.cacheCreatePrice != null) {
+          tier.cacheWriteDuration = has12h ? '30m' : '5m'
+        }
+      }
+    }
+    return tiers
   } catch {
     return []
   }

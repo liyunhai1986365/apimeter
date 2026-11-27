@@ -72,6 +72,10 @@ export type DynamicTierPriceDisplayRow = {
 }
 
 const PRIMARY_DYNAMIC_FIELDS = new Set(['inputPrice', 'outputPrice'])
+const CACHE_WRITE_LABELS = {
+  '30m': 'Cache Write (30m)',
+  '5m': 'Cache Write (5m)',
+}
 const CACHE_WRITE_DYNAMIC_FIELDS = new Set([
   'cacheCreatePrice',
   'cacheCreate1hPrice',
@@ -215,7 +219,12 @@ export function getDynamicPriceEntries(
         key: variable.key,
         field: variable.field,
         label: variable.label,
-        shortLabel: variable.key === 'cc' && tier.cacheCreate12hPrice != null ? 'Cache Write (30m)' : variable.shortLabel,
+        shortLabel:
+          variable.key === 'cc'
+            ? tier.cacheWriteDuration
+              ? CACHE_WRITE_LABELS[tier.cacheWriteDuration]
+              : 'Cache Write'
+            : variable.shortLabel,
         value,
         formatted:
           variable.unit === 'second'
