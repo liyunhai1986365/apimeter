@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
@@ -42,6 +43,34 @@ func GetGroupEnabledModels(group string) []string {
 	// Find distinct models
 	DB.Table("abilities").Where(commonGroupCol+" = ? and enabled = ?", group, true).Distinct("model").Pluck("model", &models)
 	return models
+}
+
+// GetEnabledModelsInGroupOrder returns a shared model at its first enabled group.
+func GetEnabledModelsInGroupOrder(groups []string) []string {
+	var names []string
+	// Each group binds once in IN and once in CASE. Leave room for the
+	// enabled flag on SQLite builds with a 999-parameter limit.
+	for _, batch := range lo.Chunk(lo.Uniq(groups), 400) {
+		if len(batch) == 1 {
+			names = append(names, GetGroupEnabledModels(batch[0])...)
+			continue
+		}
+		var order strings.Builder
+		order.WriteString("CASE " + commonGroupCol)
+		args := make([]any, 0, len(batch))
+		for index, group := range batch {
+			fmt.Fprintf(&order, " WHEN ? THEN %d", index)
+			args = append(args, group)
+		}
+		order.WriteString(" END, model")
+		var batchNames []string
+		DB.Model(&Ability{}).Where(commonGroupCol+" IN ? AND enabled = ?", batch, true).
+			Group(commonGroupCol+", model").
+			Clauses(clause.OrderBy{Expression: clause.Expr{SQL: order.String(), Vars: args}}).
+			Pluck("model", &batchNames)
+		names = append(names, batchNames...)
+	}
+	return lo.Uniq(names)
 }
 
 func GetEnabledModels() []string {

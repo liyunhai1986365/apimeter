@@ -651,6 +651,12 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	}
 	common.SetContextKey(c, constant.ContextKeyTokenGroup, tokenGroup)
 	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, token.GroupPolicy)
+	userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+	if groups, ordered := service.AuthorizedOrderedTokenGroups(c, tokenGroup, userGroup); ordered && len(groups) == 0 {
+		err := errors.New(i18n.T(c, i18n.MsgDistributorGroupAccessDenied))
+		abortWithOpenAiMessage(c, http.StatusForbidden, err.Error(), types.ErrorCodeAccessDenied)
+		return err
+	}
 	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, token.CrossGroupRetry)
 	common.SetContextKey(c, constant.ContextKeyTokenBillingSource, token.BillingSource)
 	common.SetContextKey(c, constant.ContextKeyTokenSubscriptionPlanId, token.SubscriptionPlanId)

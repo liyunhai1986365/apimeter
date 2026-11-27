@@ -294,6 +294,9 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 		}
 	}
 
+	if groups, ok := service.TokenModelListPolicyGroups(c, tokenGroup, userGroup); ok {
+		return modelListGroups{userGroup: userGroup, tokenGroup: tokenGroup, ownerGroups: groups}, nil
+	}
 	if tokenGroup == "auto" {
 		return modelListGroups{
 			userGroup:   userGroup,
@@ -376,7 +379,7 @@ func ListModels(c *gin.Context, modelType int) {
 	}
 
 	ownerByModel := map[string]string{}
-	if len(ownerGroups) > 0 {
+	if len(ownerGroups) > 0 && modelType != constant.ChannelTypeAnthropic && modelType != constant.ChannelTypeGemini {
 		ownerByModel = getPreferredModelOwners(userModelNames, ownerGroups)
 	}
 	userOpenAiModels := make([]dto.OpenAIModels, 0, len(userModelNames))
@@ -450,11 +453,9 @@ func ListModelMetadata(c *gin.Context) {
 			}
 		}
 	} else {
-		for _, group := range groups.ownerGroups {
-			for _, modelName := range model.GetGroupEnabledModels(group) {
-				if strings.TrimSpace(modelName) != "" {
-					modelSet[modelName] = struct{}{}
-				}
+		for _, modelName := range service.GetGroupsEnabledModels(groups.ownerGroups) {
+			if strings.TrimSpace(modelName) != "" {
+				modelSet[modelName] = struct{}{}
 			}
 		}
 	}

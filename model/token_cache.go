@@ -32,6 +32,8 @@ func tokenCacheTTLSeconds() int {
 // While the fence exists readers simply serve the database without caching.
 const tokenCacheFenceSeconds = 10
 
+const tokenRoutingCacheVersion = "1"
+
 // invalidateTokenCacheForMutation is called before a token metadata mutation
 // writes to the database: it raises the fence and drops the cached hash so no
 // reader can act on (or re-publish) the pre-mutation state.
@@ -48,7 +50,7 @@ func invalidateTokenCacheForMutation(key string) error {
 }
 
 // Capture epoch before reading the database. Existing hashes may have pending
-// quota debits. Only backfill absent routing metadata on a matching token.
+// quota debits. Upgrade only routing metadata on a matching token.
 func cacheInitTokenAtEpoch(token Token, epoch string) (int, error) {
 	allowIps := ""
 	if token.AllowIps != nil {
@@ -58,9 +60,13 @@ func cacheInitTokenAtEpoch(token Token, epoch string) (int, error) {
 if redis.call('EXISTS', KEYS[2]) == 1 then
   return 0
 end
+local routingVersion = '` + tokenRoutingCacheVersion + `'
 if redis.call('EXISTS', KEYS[1]) == 1 then
-  if redis.call('HGET', KEYS[1], 'Id') == ARGV[1] then
-    redis.call('HSETNX', KEYS[1], 'GroupPolicy', ARGV[17])
+  if redis.call('HGET', KEYS[1], 'Id') == ARGV[1] and
+     (redis.call('HGET', KEYS[1], 'RoutingVersion') ~= routingVersion or
+      redis.call('HEXISTS', KEYS[1], 'GroupPolicy') == 0) then
+    redis.call('HSET', KEYS[1], 'Group', ARGV[12], 'CrossGroupRetry', ARGV[13],
+      'AutoGroups', ARGV[14], 'GroupPolicy', ARGV[17], 'RoutingVersion', routingVersion)
   end
   redis.call('EXPIRE', KEYS[1], ARGV[18])
   return 2
@@ -71,7 +77,7 @@ redis.call('HSET', KEYS[1],
   'UnlimitedQuota', ARGV[8], 'ModelLimitsEnabled', ARGV[9], 'ModelLimits', ARGV[10],
   'AllowIps', ARGV[11], 'Group', ARGV[12], 'CrossGroupRetry', ARGV[13],
   'AutoGroups', ARGV[14], 'RemainQuota', ARGV[15], 'UsedQuota', ARGV[16],
-  'GroupPolicy', ARGV[17])
+  'GroupPolicy', ARGV[17], 'RoutingVersion', routingVersion)
 redis.call('EXPIRE', KEYS[1], ARGV[18])
 return 1`
 
@@ -107,7 +113,7 @@ func cacheGetTokenByKey(key string) (*Token, error) {
 			return nil, err
 		}
 	}
-	if _, hasPolicy := fields["GroupPolicy"]; !hasPolicy || token.Id <= 0 {
+	if _, hasPolicy := fields["GroupPolicy"]; !hasPolicy || fields["RoutingVersion"] != tokenRoutingCacheVersion || token.Id <= 0 {
 		return nil, fmt.Errorf("token cache is incomplete")
 	}
 	token.Key = key

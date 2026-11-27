@@ -89,6 +89,9 @@ func NormalizeTokenGroupPolicyForUserWithAgent(raw string, userGroup string, use
 }
 
 func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
+	if groups, ok := common.GetContextKeyType[[]string](ctx, authorizedOrderedGroupsKey); ok {
+		return groups
+	}
 	raw := common.GetContextKeyString(ctx, constant.ContextKeyTokenGroupPolicy)
 	policy, ok, err := parseTokenGroupPolicy(raw)
 	if err != nil || !ok {
@@ -160,6 +163,42 @@ func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 
 func agentPolicyGroupContextKey(systemGroup string) constant.ContextKey {
 	return constant.ContextKey("agent_policy_group:" + strings.TrimSpace(systemGroup))
+}
+
+const authorizedOrderedGroupsKey constant.ContextKey = "authorized_ordered_token_groups"
+
+// TokenModelListPolicyGroups resolves explicit policies before model discovery
+// falls back to the legacy single group or a token's Auto snapshot.
+func TokenModelListPolicyGroups(ctx *gin.Context, tokenGroup, userGroup string) ([]string, bool) {
+	if IsRoutingStrategyTokenPolicy(ctx) {
+		return ResolveTokenGroupChain(ctx, tokenGroup), true
+	}
+	return AuthorizedOrderedTokenGroups(ctx, tokenGroup, userGroup)
+}
+
+// AuthorizedOrderedTokenGroups takes one permission snapshot per authenticated
+// request. Discovery, affinity and relay retries all use the same ordered list.
+func AuthorizedOrderedTokenGroups(ctx *gin.Context, tokenGroup, userGroup string) ([]string, bool) {
+	if groups, ok := common.GetContextKeyType[[]string](ctx, authorizedOrderedGroupsKey); ok {
+		return groups, true
+	}
+	if !HasMultipleOrderedTokenGroups(common.GetContextKeyString(ctx, constant.ContextKeyTokenGroupPolicy)) {
+		return nil, false
+	}
+	groups := ResolveTokenGroupChain(ctx, tokenGroup)
+	agentCtx, _ := common.GetContextKeyType[*types.AgentContext](ctx, constant.ContextKeyAgentContext)
+	visible := make([]string, 0, len(groups))
+	for _, group := range groups {
+		name := group
+		if alias := common.GetContextKeyString(ctx, agentPolicyGroupContextKey(group)); alias != "" {
+			name = alias
+		}
+		if ValidateExplicitTokenGroupForUserWithAgent(name, userGroup, ctx.GetInt("id"), agentCtx) == nil {
+			visible = append(visible, group)
+		}
+	}
+	common.SetContextKey(ctx, authorizedOrderedGroupsKey, visible)
+	return visible, true
 }
 
 func excludePolicyGroups(groups []string, excludedGroups []string) []string {

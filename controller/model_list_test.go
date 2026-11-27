@@ -289,6 +289,40 @@ func TestGetUserModelsExpandsAutoGroupsInConfiguredOrder(t *testing.T) {
 	assert.Equal(t, "zz-default-model", models[2])
 }
 
+func TestModelListGroupsBatchQueries(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	groups := []string{"z-first", "empty", "gemini's group", "fourth", "fifth", "a-last"}
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: groups[0], Model: "shared", ChannelId: 1, Enabled: true},
+		{Group: groups[0], Model: "shared", ChannelId: 2, Enabled: true},
+		{Group: groups[2], Model: "gemini", ChannelId: 3, Enabled: true},
+		{Group: groups[2], Model: "shared", ChannelId: 3, Enabled: true},
+		{Group: groups[2], Model: "disabled", ChannelId: 4},
+		{Group: groups[5], Model: "last", ChannelId: 5, Enabled: true},
+		{Group: "outside", Model: "other", ChannelId: 6, Enabled: true},
+	}).Error)
+	queries := 0
+	require.NoError(t, db.Callback().Query().After("gorm:query").Register("test:count_model_queries", func(tx *gorm.DB) {
+		if tx.Statement.Table == "abilities" {
+			queries++
+		}
+	}))
+	require.Equal(t, []string{}, model.GetEnabledModelsInGroupOrder(nil))
+	require.Zero(t, queries)
+	require.Equal(t, []string{"shared", "gemini", "last"}, model.GetEnabledModelsInGroupOrder(groups))
+	require.Equal(t, 1, queries)
+
+	// Place the Gemini group in the second batch with a model also present in the first.
+	many := []string{groups[0]}
+	for i := 1; i < 400; i++ {
+		many = append(many, fmt.Sprintf("empty-%d", i))
+	}
+	many = append(many, groups[2], groups[0])
+	queries = 0
+	require.Equal(t, []string{"shared", "gemini"}, model.GetEnabledModelsInGroupOrder(many))
+	require.Equal(t, 2, queries)
+}
+
 func TestListModelsIncludesTieredBillingModel(t *testing.T) {
 	withSelfUseModeDisabled(t)
 	withTieredBillingConfig(t, map[string]string{

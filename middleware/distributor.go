@@ -180,8 +180,8 @@ func distribute(videoTaskFetch bool) func(c *gin.Context) {
 				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 				channelGroup := usingGroup
 				agentCtx, _ := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
-				hasGroupPolicyChain := len(service.ResolveTokenGroupChain(c, usingGroup)) > 0
-				if model.IsUserOwnedProviderGroup(channelGroup) && !hasGroupPolicyChain {
+				policyGroups := service.ResolveTokenGroupChain(c, usingGroup)
+				if model.IsUserOwnedProviderGroup(channelGroup) && len(policyGroups) == 0 {
 					ownedChannel, ownedErr := model.GetUserOwnedProviderChannelForGroup(c.GetInt("id"), channelGroup, modelRequest.Model)
 					if ownedErr != nil {
 						abortWithOpenAiMessage(c, http.StatusForbidden, ownedErr.Error(), types.ErrorCodeModelNotFound)
@@ -247,7 +247,7 @@ func distribute(videoTaskFetch bool) func(c *gin.Context) {
 								service.ClearChannelAffinityContext(c)
 							} else if usingGroup == "auto" {
 								userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-								groups := service.ResolveTokenGroupChain(c, usingGroup)
+								groups := policyGroups
 								if len(groups) == 0 {
 									groups = service.GetUserAutoGroup(userGroup)
 								}
@@ -290,7 +290,11 @@ func distribute(videoTaskFetch bool) func(c *gin.Context) {
 						return
 					}
 					if channel == nil {
-						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": usingGroup, "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
+						showGroup := usingGroup
+						if agentCtx == nil && len(policyGroups) > 1 {
+							showGroup = strings.Join(policyGroups, " → ")
+						}
+						abortWithOpenAiMessage(c, http.StatusServiceUnavailable, i18n.T(c, i18n.MsgDistributorNoAvailableChannel, map[string]any{"Group": showGroup, "Model": modelRequest.Model}), types.ErrorCodeModelNotFound)
 						return
 					}
 				}
